@@ -1,0 +1,1 @@
+# proyectoSolManager_SOFTWARE2-URU

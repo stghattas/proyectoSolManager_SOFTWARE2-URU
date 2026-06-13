@@ -1,0 +1,68 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "12345678",
+      "role": "admin",
+      "name": "Administrador"
+    },
+    {
+      "id": 2,
+      "username": "cliente",
+      "password": "12345677",
+      "role": "cliente",
+      "name": "Usuario Cliente"
+    }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "name": "Guineo",
+      "unit": "1 bulto ≈ 20 kg",
+      "priceUSD": 12.50,
+      "priceVES": 531.25,
+      "icon": "🍌"
+    },
+    {
+      "id": 2,
+      "name": "Carne de res",
+      "unit": "kg",
+      "priceUSD": 7.50,
+      "priceVES": 318.75,
+      "icon": "🥩"
+    },
+    {
+      "id": 3,
+      "name": "Leche evaporada",
+      "unit": "lata",
+      "priceUSD": 1.53,
+      "priceVES": 65.03,
+      "icon": "🥫"
+    },
+    {
+      "id": 4,
+      "name": "Harina PAN",
+      "unit": "1 bulto (10kg)",
+      "priceUSD": 15.00,
+      "priceVES": 637.50,
+      "icon": "🌽"
+    },
+    {
+      "id": 5,
+      "name": "Queso blanco",
+      "unit": "kg",
+      "priceUSD": 4.50,
+      "priceVES": 191.25,
+      "icon": "🧀"
+    },
+    {
+      "id": 6,
+      "name": "Pollo entero",
+      "unit": "kg",
+      "priceUSD": 3.20,
+      "priceVES": 136.00,
+      "icon": "🍗"
+    }
+  ]
+}

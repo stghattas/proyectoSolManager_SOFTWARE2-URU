@@ -1,5 +1,3 @@
-
-// Elementos DOM
 const loginTab = document.getElementById('tabLogin');
 const registerTab = document.getElementById('tabRegister');
 const loginFormDiv = document.getElementById('loginForm');
@@ -21,21 +19,22 @@ const forgotLink = document.getElementById('forgotLink');
 const themeToggleBtn = document.getElementById('themeToggle');
 const body = document.body;
 
+// --- JSON DE USUARIOS PRECONFIGURADOS ---
+const userDatabase = [
+  { "email": "admin@sol.com", "password": "123", "role": "admin", "name": "Administrador" },
+  { "email": "cliente@sol.com", "password": "123", "role": "cliente", "name": "Juan García" }
+];
+
 // Mostrar mensaje temporal
 function showMessage(msg, isError = false) {
   messageDiv.textContent = msg;
   messageDiv.style.display = 'block';
   messageDiv.style.backgroundColor = isError ? '#fee2e2' : '#fef9c3';
   messageDiv.style.color = isError ? '#b91c1c' : '#854d0e';
-  if (isError) {
-    setTimeout(() => {
-      messageDiv.style.display = 'none';
-    }, 4000);
-  } else {
-    setTimeout(() => {
-      messageDiv.style.display = 'none';
-    }, 3000);
-  }
+  
+  setTimeout(() => {
+    messageDiv.style.display = 'none';
+  }, isError ? 4000 : 3000);
 }
 
 // Cambiar entre tabs
@@ -56,10 +55,11 @@ function setActiveTab(tab) {
 loginTab.addEventListener('click', () => setActiveTab('login'));
 registerTab.addEventListener('click', () => setActiveTab('register'));
 
-// LOGIC: Ingresar (simulación - demo)
+// LÓGICA: Ingresar con redirección al Dashboard real
 doLoginBtn.addEventListener('click', () => {
   const email = loginEmail.value.trim();
   const pwd = loginPassword.value.trim();
+  
   if (!email || !pwd) {
     showMessage('Por favor completa el correo y la contraseña.', true);
     return;
@@ -68,16 +68,29 @@ doLoginBtn.addEventListener('click', () => {
     showMessage('El correo parece inválido.', true);
     return;
   }
-  // Simulación de autenticación exitosa
-  showMessage(`Bienvenido de nuevo, ${email}. Redirigiendo al panel...`, false);
-  setTimeout(() => {
-    // En una app real redirigir según rol. Demo: alerta y recarga simulada
-    alert('Acceso simulado exitoso. En producción redirigiría al dashboard correspondiente (Cliente/Manager).');
-    // Podrías limpiar o mantener
-  }, 1500);
+
+  // Buscar en la base de datos local / guardados en localStorage dinámicos
+  const dynamicUsers = JSON.parse(localStorage.getItem('solRegisteredUsers')) || [];
+  const allUsers = [...userDatabase, ...dynamicUsers];
+  
+  const userFound = allUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === pwd);
+
+  if (userFound) {
+    // 1. Guardar la sesión activa del usuario
+    localStorage.setItem('solUserSession', JSON.stringify(userFound));
+    
+    // 2. Mostrar feedback y redirigir al panel dashboard.html
+    showMessage(`Bienvenido de nuevo, ${userFound.name}. Redirigiendo al panel...`, false);
+    
+    setTimeout(() => {
+      window.location.href = 'dashboard.html';
+    }, 1200);
+  } else {
+    showMessage('Credenciales incorrectas. Prueba con admin@sol.com o cliente@sol.com (clave: 123).', true);
+  }
 });
 
-// Registro validación
+// Registro validación persistente local
 doRegisterBtn.addEventListener('click', () => {
   const name = regName.value.trim();
   const email = regEmail.value.trim();
@@ -96,7 +109,24 @@ doRegisterBtn.addEventListener('click', () => {
     return;
   }
 
-  // Simular registro exitoso
+  // Guardar en el arreglo dinámico de localStorage
+  const dynamicUsers = JSON.parse(localStorage.getItem('solRegisteredUsers')) || [];
+  
+  if ([...userDatabase, ...dynamicUsers].some(u => u.email.toLowerCase() === email.toLowerCase())) {
+    showMessage('Este correo electrónico ya está registrado.', true);
+    return;
+  }
+
+  const newUser = {
+    name: name,
+    email: email,
+    password: pwd,
+    role: "cliente" // Por defecto se registran como clientes
+  };
+
+  dynamicUsers.push(newUser);
+  localStorage.setItem('solRegisteredUsers', JSON.stringify(dynamicUsers));
+
   showMessage(`¡Cuenta creada para ${name}! Ahora puedes iniciar sesión.`, false);
 
   // Limpiar campos y cambiar a login
@@ -113,7 +143,7 @@ doRegisterBtn.addEventListener('click', () => {
 // Recuperar contraseña (demo)
 forgotLink.addEventListener('click', (e) => {
   e.preventDefault();
-  showMessage(' Se ha enviado un enlace de recuperación a tu correo (demo).', false);
+  showMessage('Se ha enviado un enlace de recuperación a tu correo (demo).', false);
 });
 
 // Modo oscuro/claro persistente
@@ -123,7 +153,7 @@ function applyTheme(theme) {
     themeToggleBtn.innerHTML = 'Modo claro';
   } else {
     body.classList.remove('dark');
-    themeToggleBtn.innerHTML = ' Modo oscuro';
+    themeToggleBtn.innerHTML = 'Modo oscuro';
   }
   localStorage.setItem('solAuthTheme', theme);
 }

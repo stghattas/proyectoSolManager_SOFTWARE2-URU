@@ -1,0 +1,80 @@
+/* ==========================================================================
+   ESTILOS EXCLUSIVOS DE LA VISTA DE CATÁLOGO
+   ========================================================================== */
+.catalog-header-title h2 {
+  color: var(--color-text-dark);
+  font-size: 1.5rem;
+}
+
+.catalog-categories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-md);
+}
+
+.category-btn-card {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  background: var(--color-bg-card);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-lg);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: var(--box-shadow-light);
+  width: 100%;
+  transition: transform 0.2s ease, border-color 0.2s;
+}
+
+.category-btn-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-primary);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+}
+
+body.dark .category-btn-card:hover {
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+.category-icon-wrapper {
+  font-size: 2.2rem;
+  background: var(--color-secondary);
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 65px;
+  height: 65px;
+  flex-shrink: 0;
+}
+
+body.dark .category-icon-wrapper {
+  background: var(--color-tertiary);
+}
+
+.category-info-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.category-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+.category-count {
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .catalog-categories-grid {
+    grid-template-columns: 1fr;
+  }
+}

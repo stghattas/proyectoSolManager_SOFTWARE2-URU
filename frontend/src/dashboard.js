@@ -9,7 +9,7 @@ const database = {
   ]
 };
 
-// Elementos del DOM
+// Elementos del DOM Existentes
 const sidebarUserName = document.getElementById('sidebarUserName');
 const sidebarUserRole = document.getElementById('sidebarUserRole');
 const adminPanelArea = document.getElementById('adminPanelArea');
@@ -20,14 +20,56 @@ const searchInput = document.getElementById('searchInput');
 const btnSearch = document.getElementById('btnSearch');
 const body = document.body;
 
+// Elementos de Navegación del Menú y Vistas
+const btnHome = document.getElementById('menu-home');
+const btnCart = document.getElementById('menu-cart');
+const btnCatalog = document.getElementById('menu-catalog');
+
+const viewHome = document.getElementById('view-home');
+const viewCart = document.getElementById('view-cart');
+const viewCatalog = document.getElementById('view-catalog');
+
 let currentUser = null;
 
+// ==========================================================================
+// 1. CONTROLADOR DE CAMBIO DE VISTAS (SPA)
+// ==========================================================================
+function showView(targetView) {
+  // Ocultar todas las vistas primero
+  viewHome.style.display = 'none';
+  viewCart.style.display = 'none';
+  viewCatalog.style.display = 'none';
+
+  // Desactivar todos los botones del menú
+  btnHome.classList.remove('active');
+  btnCart.classList.remove('active');
+  btnCatalog.classList.remove('active');
+
+  // Activar solo la seleccionada
+  if (targetView === 'home') {
+    viewHome.style.display = 'block';
+    btnHome.classList.add('active');
+  } else if (targetView === 'cart') {
+    viewCart.style.display = 'block';
+    btnCart.classList.add('active');
+  } else if (targetView === 'catalog') {
+    viewCatalog.style.display = 'block';
+    btnCatalog.classList.add('active');
+  }
+}
+
+// Asignar los eventos de clic a las pestañas del Sidebar
+btnHome.addEventListener('click', () => showView('home'));
+btnCart.addEventListener('click', () => showView('cart'));
+btnCatalog.addEventListener('click', () => showView('catalog'));
+
+// ==========================================================================
 // 2. Verificar Sesión al cargar la página
+// ==========================================================================
 function checkSession() {
   const sessionData = localStorage.getItem('solUserSession');
   
   if (!sessionData) {
-    // Si no hay sesión iniciada, redirige al login inmediatamente
     alert('No has iniciado sesión. Redirigiendo...');
     window.location.href = 'index.html';
     return;
@@ -35,20 +77,19 @@ function checkSession() {
   
   currentUser = JSON.parse(sessionData);
   
-  // Rellenar información de usuario en el sidebar
   sidebarUserName.textContent = currentUser.name || currentUser.email;
   sidebarUserRole.textContent = `Rol: ${currentUser.role || 'cliente'}`;
   
-  // Mostrar controles de admin si corresponde
   if (currentUser.role === 'admin') {
     adminPanelArea.style.display = 'flex';
   }
   
-  // Cargar productos
   renderProducts(database.products);
 }
 
+// ==========================================================================
 // 3. Renderizar los Productos dinámicamente según el Rol
+// ==========================================================================
 function renderProducts(productsList) {
   productGridContainer.innerHTML = '';
   
@@ -58,7 +99,6 @@ function renderProducts(productsList) {
   }
 
   productsList.forEach(product => {
-    // Determinar botones según el rol del usuario actual
     let actionButtonsHTML = '';
     
     if (currentUser && currentUser.role === 'admin') {
@@ -97,8 +137,11 @@ function renderProducts(productsList) {
   });
 }
 
+// ==========================================================================
 // 4. Lógica de Búsqueda / Filtro de Productos
+// ==========================================================================
 function handleSearch() {
+  showView('home'); // Al buscar, regresa automáticamente al home
   const text = searchInput.value.trim().toLowerCase();
   const filtered = database.products.filter(p => p.name.toLowerCase().includes(text));
   renderProducts(filtered);
@@ -109,13 +152,17 @@ searchInput.addEventListener('keyup', (e) => {
   if (e.key === 'Enter') handleSearch();
 });
 
+// ==========================================================================
 // 5. Gestión del Cierre de Sesión
+// ==========================================================================
 btnLogout.addEventListener('click', () => {
   localStorage.removeItem('solUserSession');
   window.location.href = 'index.html';
 });
 
+// ==========================================================================
 // 6. Sincronización del Modo Oscuro/Claro
+// ==========================================================================
 function applyTheme(theme) {
   if (theme === 'dark') {
     body.classList.add('dark');
@@ -132,7 +179,7 @@ themeToggleBtn.addEventListener('click', () => {
   applyTheme(newTheme);
 });
 
-// Inicializar al cargar el script
+// Inicialización general
 const savedTheme = localStorage.getItem('solAuthTheme') || 'light';
 applyTheme(savedTheme);
 checkSession();

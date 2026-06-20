@@ -108,3 +108,33 @@ themeToggle.addEventListener('click', () => {
   const newTheme = document.body.classList.contains('dark') ? 'light' : 'dark';
   applyTheme(newTheme);
 });
+
+## Pruebas unitarias (Vitest)
+
+Se añadieron pruebas unitarias para el controlador de autenticación.
+
+- Archivo de tests: [backend/src/controllers/authController.spec.js](backend/src/controllers/authController.spec.js#L1-L999)
+
+Pruebas incluidas (8 casos):
+
+1. Login - Validación de entrada: retorna `400` si falta email o contraseña.
+2. Login - Usuario inexistente: retorna `401` cuando el correo no existe.
+3. Login - Contraseña incorrecta: retorna `401` si la contraseña no coincide.
+4. Login - Éxito: retorna `accessToken` y datos del usuario.
+5. Register - Validación de entrada: retorna `400` si faltan campos obligatorios.
+6. Register - Rol inválido: retorna `400` para roles no permitidos.
+7. Register - Correo duplicado: retorna `409` si el correo ya está registrado.
+8. Register - Éxito: crea usuario y retorna `accessToken` y datos del usuario.
+
+Cómo ejecutar las pruebas:
+
+```bash
+cd backend
+npm install
+npm test
+```
+
+Notas:
+
+- Las pruebas usan `vitest` y mockean las dependencias (`../models/userModel` y `jsonwebtoken`) para aislar la lógica del controlador.
+- El script `test` se agregó en `backend/package.json`.

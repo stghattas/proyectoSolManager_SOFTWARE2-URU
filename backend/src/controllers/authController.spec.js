@@ -5,6 +5,10 @@ import { createRequire } from 'module'
 const mockFindUserByEmail = vi.fn()
 const mockCreateUser = vi.fn()
 
+// Datos generales de prueba (cambiar aquí para probar con otro gmail/pwd)
+const TEST_EMAIL = 'ronald@gmailcom'
+const TEST_PWD = ''
+
 // Reemplazar el módulo CJS en el cache de require antes de cargar el controlador
 const requireC = createRequire(import.meta.url)
 const userModelPath = requireC.resolve('../models/userModel.js')
@@ -51,14 +55,17 @@ afterEach(() => {
  * - dentro de cada uno, `describe` para grupos de casos y `it` con entrada/salida
  */
 
+
+
 describe('Controlador de autenticación', () => {
 
   describe('login', () => {
+
     
     describe('Validaciones de entrada', () => {
       it('1) Debe retornar 400 si faltan email o contraseña - Entrada/Salida', async () => {
         // Entrada:
-        const req = { body: { email: 'a@b.com' } } // falta password
+        const req = { body: { email: TEST_EMAIL, password: undefined } } // falta password
         const res = mockResponse()
 
         // Act
@@ -75,23 +82,23 @@ describe('Controlador de autenticación', () => {
       it('2) Debe retornar 401 si el usuario no existe - Entrada/Salida', async () => {
         // Entrada:
         mockFindUserByEmail.mockResolvedValue(null)
-        const req = { body: { email: 'noexiste@x.com', password: 'pwd' } }
+        const req = { body: { email: TEST_EMAIL, password: TEST_PWD } }
         const res = mockResponse()
 
         // Act
         await login(req, res)
 
         // Salida esperada: status 401 + mensaje de credenciales
-        expect(mockFindUserByEmail).toHaveBeenCalledWith('noexiste@x.com')
+        expect(mockFindUserByEmail).toHaveBeenCalledWith(TEST_EMAIL)
         expect(res.status).toHaveBeenCalledWith(401)
         expect(res.json).toHaveBeenCalledWith({ message: 'Credenciales incorrectas' })
       })
 
       it('3) Debe retornar 401 si la contraseña es incorrecta - Entrada/Salida', async () => {
         // Entrada:
-        const fakeUser = { id_usuario: 1, correo: 'u@x.com', contraseña: 'secret' }
+        const fakeUser = { id_usuario: 1, correo: TEST_EMAIL, contraseña: 'secret' }
         mockFindUserByEmail.mockResolvedValue(fakeUser)
-        const req = { body: { email: 'u@x.com', password: 'wrong' } }
+        const req = { body: { email: TEST_EMAIL, password: TEST_PWD } }
         const res = mockResponse()
 
         // Act
@@ -108,13 +115,13 @@ describe('Controlador de autenticación', () => {
         // Entrada:
         const fakeUser = {
           id_usuario: 2,
-          correo: 'ok@x.com',
-          contraseña: 'mypwd',
+          correo: TEST_EMAIL,
+          contraseña: TEST_PWD,
           nombre: 'Usuario OK',
           rol: 'cliente'
         }
         mockFindUserByEmail.mockResolvedValue(fakeUser)
-        const req = { body: { email: 'ok@x.com', password: 'mypwd' } }
+        const req = { body: { email: TEST_EMAIL, password: TEST_PWD } }
         const res = mockResponse()
 
         // Act
@@ -138,7 +145,7 @@ describe('Controlador de autenticación', () => {
     describe('Validaciones de entrada', () => {
       it('5) Debe retornar 400 si faltan campos obligatorios - Entrada/Salida', async () => {
         // Entrada:
-        const req = { body: { email: 'x@x.com', password: 'p' } } // falta name
+        const req = { body: { email: TEST_EMAIL, password: TEST_PWD } } // falta name
         const res = mockResponse()
 
         // Act
@@ -151,7 +158,7 @@ describe('Controlador de autenticación', () => {
 
       it('6) Debe retornar 400 si el rol no es válido - Entrada/Salida', async () => {
         // Entrada:
-        const req = { body: { email: 'x@x.com', password: 'p', name: 'X', role: 'admin' } }
+        const req = { body: { email: TEST_EMAIL, password: TEST_PWD, name: 'X', role: 'admin' } }
         const res = mockResponse()
 
         // Act
@@ -166,16 +173,16 @@ describe('Controlador de autenticación', () => {
     describe('Conflictos y errores', () => {
       it('7) Debe retornar 409 si el correo ya está registrado - Entrada/Salida', async () => {
         // Entrada:
-        const existing = { id_usuario: 5, correo: 'dup@x.com' }
+        const existing = { id_usuario: 5, correo: TEST_EMAIL }
         mockFindUserByEmail.mockResolvedValue(existing)
-        const req = { body: { email: 'dup@x.com', password: 'p', name: 'Dup' } }
+        const req = { body: { email: TEST_EMAIL, password: TEST_PWD, name: 'Dup' } }
         const res = mockResponse()
 
         // Act
         await register(req, res)
 
         // Salida esperada: status 409 + mensaje
-        expect(mockFindUserByEmail).toHaveBeenCalledWith('dup@x.com')
+        expect(mockFindUserByEmail).toHaveBeenCalledWith(TEST_EMAIL)
         expect(res.status).toHaveBeenCalledWith(409)
         expect(res.json).toHaveBeenCalledWith({ message: 'El correo ya está registrado' })
       })
@@ -187,19 +194,19 @@ describe('Controlador de autenticación', () => {
         mockFindUserByEmail.mockResolvedValue(null)
         const created = {
           id_usuario: 77,
-          correo: 'new@x.com',
+          correo: TEST_EMAIL,
           nombre: 'Nuevo',
           rol: 'cliente'
         }
         mockCreateUser.mockResolvedValue(created)
-        const req = { body: { email: 'new@x.com', password: 'pw', name: 'Nuevo' } }
+        const req = { body: { email: TEST_EMAIL, password: TEST_PWD, name: 'Nuevo' } }
         const res = mockResponse()
 
         // Act
         await register(req, res)
 
         // Salida esperada: status 201 + JSON con token y user
-        expect(mockCreateUser).toHaveBeenCalledWith('new@x.com', 'pw', 'Nuevo', 'cliente')
+        expect(mockCreateUser).toHaveBeenCalledWith(TEST_EMAIL, TEST_PWD, 'Nuevo', 'cliente')
         expect(res.status).toHaveBeenCalledWith(201)
         expect(res.json).toHaveBeenCalledWith({
           accessToken: 'signed-token',

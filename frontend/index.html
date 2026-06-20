@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sol-Manager</title>
+  <!-- Redirección inmediata a pages/index.html -->
+  <meta http-equiv="refresh" content="0; url=pages/index.html">
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+    .loader {
+      text-align: center;
+    }
+    .loader span {
+      display: inline-block;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="loader">
+    <span>☀️</span>
+    <p>Cargando Sol-Manager...</p>
+    <small>Redirigiendo a la página de inicio</small>
+  </div>
+</body>
+</html>

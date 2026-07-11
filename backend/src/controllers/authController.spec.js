@@ -6,8 +6,8 @@ const mockFindUserByEmail = vi.fn()
 const mockCreateUser = vi.fn()
 
 // Datos generales de prueba (cambiar aquí para probar con otro gmail/pwd)
-const TEST_EMAIL = 'ronald@gmailcom'
-const TEST_PWD = ''
+const TEST_EMAIL = 'ronald@gmail.com'
+const TEST_PWD = 'password123'
 
 // Reemplazar el módulo CJS en el cache de require antes de cargar el controlador
 const requireC = createRequire(import.meta.url)

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sol-Manager | Panel</title>
-  <link rel="stylesheet" href="../css/styles.css">
+  <link rel="stylesheet" href="./css/styles.css">
   <style>
     /* Estilos adicionales */
     .delivery-map-placeholder {
@@ -45,7 +45,8 @@
     .order-status.entregado { background: #dcfce7; color: #166534; }
     .order-status.pendiente { background: #fef3c7; color: #92400e; }
     .product-detail-modal,
-    .payment-modal {
+    .payment-modal,
+    .chat-modal {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.5);
@@ -55,7 +56,8 @@
       z-index: 1000;
     }
     .product-detail-content,
-    .payment-content {
+    .payment-content,
+    .chat-content {
       background: var(--color-bg-card);
       max-width: 500px;
       width: 90%;
@@ -228,6 +230,57 @@
       padding: 1.5rem;
       margin-top: 1rem;
     }
+    /* Estilos para el chat */
+    .chat-messages {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-md);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      background: var(--color-bg-hover);
+    }
+    .chat-message {
+      margin-bottom: 0.75rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-message.mine {
+      align-items: flex-end;
+    }
+    .chat-message.other {
+      align-items: flex-start;
+    }
+    .chat-bubble {
+      max-width: 80%;
+      padding: 0.6rem 1rem;
+      border-radius: 18px;
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+    body.dark .chat-bubble {
+      background: #334155;
+      color: #f1f5f9;
+    }
+    .chat-bubble.mine {
+      background: var(--color-primary);
+      color: white;
+    }
+    .chat-input-area {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .chat-input-area input {
+      flex: 1;
+    }
+    .btn-admin-add {
+      background: var(--color-primary);
+      color: white;
+      border: none;
+      padding: 0.5rem 1.2rem;
+      border-radius: var(--border-radius-md);
+      cursor: pointer;
+    }
   </style>
 </head>
 <body class="dashboard-body">
@@ -260,11 +313,14 @@
         <button id="menu-admin-almacenes" class="menu-btn"><span>🏢</span> Almacenes</button>
         <button id="menu-admin-proveedores" class="menu-btn"><span>📋</span> Proveedores</button>
         <button id="menu-admin-reportes" class="menu-btn"><span>📊</span> Reportes</button>
+        <button id="menu-admin-users" class="menu-btn"><span>👥</span> Usuarios</button>
+        <button id="menu-admin-devoluciones" class="menu-btn"><span>↩️</span> Devoluciones</button>
 
         <!-- Almacenista -->
         <button id="menu-warehouse-movements" class="menu-btn"><span>📊</span> Movimientos de Stock</button>
         <button id="menu-warehouse-purchases" class="menu-btn"><span>🛒</span> Registro de compras</button>
         <button id="menu-warehouse-adjustments" class="menu-btn"><span>⚖️</span> Ajustes de inventario</button>
+        <button id="menu-warehouse-alerts" class="menu-btn"><span>⚠️</span> Alertas de stock</button>
       </nav>
 
       <div class="sidebar-footer">
@@ -361,9 +417,9 @@
           <h2>🚚 Rastreo de entrega</h2>
           <div class="delivery-map-placeholder">🗺️ Mapa en tiempo real (simulado)<br><small>Próximamente Google Maps</small></div>
           <div style="background: var(--color-bg-card); padding: var(--spacing-md); border-radius: var(--border-radius-md);">
-            <p><strong>Estado actual:</strong> <span style="color: #f59e0b;">En camino</span></p>
-            <p><strong>Tiempo estimado:</strong> 15 min</p>
-            <p><strong>Repartidor:</strong> Juan Pérez</p>
+            <p><strong>Estado actual:</strong> <span id="deliveryStatus" style="color: #f59e0b;">En camino</span></p>
+            <p><strong>Tiempo estimado:</strong> <span id="deliveryETA">15 min</span></p>
+            <p><strong>Repartidor:</strong> <span id="deliveryCourier">Juan Pérez</span></p>
           </div>
         </div>
 
@@ -459,12 +515,40 @@
             <h3>Últimos pedidos</h3>
             <div id="posOrdersContainer"></div>
           </div>
+          <!-- Cierre de caja -->
+          <div style="margin-top:2rem; padding:1rem; border:1px solid var(--border-color); border-radius:var(--border-radius-md);">
+            <h3>🔒 Cierre de caja</h3>
+            <div class="form-group">
+              <label>Monto inicial en caja (VES)</label>
+              <input type="number" id="cashierOpeningVES" style="width:100%; padding:0.5rem;" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label>Monto inicial en caja (USD)</label>
+              <input type="number" id="cashierOpeningUSD" style="width:100%; padding:0.5rem;" step="0.01" placeholder="0.00">
+            </div>
+            <button id="btnOpenCashier" class="btn-save-config">Abrir caja</button>
+            <button id="btnCloseCashier" class="btn-save-config" style="margin-left:1rem;">Cerrar caja</button>
+            <span id="cashierStatus" style="margin-left:1rem;"></span>
+          </div>
         </div>
 
         <!-- ======== VISTA REPARTIDOR (ENTREGAS) ======== -->
         <div id="view-delivery-list" class="dashboard-view" style="display: none;">
           <h2>🚚 Mis entregas</h2>
           <div id="deliveriesContainer"></div>
+        </div>
+
+        <!-- Chat con cliente (modal) -->
+        <div class="chat-modal" id="chatModal">
+          <div class="chat-content">
+            <span class="close-modal" id="closeChatModal">&times;</span>
+            <h2>💬 Chat con el cliente</h2>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-area">
+              <input type="text" id="chatMessageInput" placeholder="Escribe un mensaje..." style="flex:1; padding:0.5rem; border-radius:var(--border-radius-md); border:1px solid var(--input-border);">
+              <button id="btnSendMessage" class="btn-save-config" style="margin-top:0;">Enviar</button>
+            </div>
+          </div>
         </div>
 
         <!-- ======== VISTAS ADMIN/ALMACENISTA ======== -->
@@ -489,6 +573,60 @@
           <h2>📊 Reportes</h2>
           <div id="reportesContainer"></div>
         </div>
+
+        <!-- Gestión de usuarios (Gerente) -->
+        <div id="view-admin-users" class="dashboard-view" style="display: none;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <h2>👥 Gestión de usuarios</h2>
+            <button class="btn-admin-add" id="btnAddUser">+ Nuevo usuario</button>
+          </div>
+          <div id="usersTableContainer" class="table-responsive"></div>
+          <!-- Formulario para crear/editar usuario (oculto por defecto) -->
+          <div id="userFormContainer" style="display:none; margin-top:1rem; background:var(--color-bg-card); padding:1rem; border-radius:var(--border-radius-md);">
+            <h3 id="userFormTitle">Nuevo usuario</h3>
+            <div class="form-group">
+              <label>Nombre</label>
+              <input type="text" id="userFormName" class="search-input" style="width:100%;">
+            </div>
+            <div class="form-group">
+              <label>Apellido</label>
+              <input type="text" id="userFormLastName" class="search-input" style="width:100%;">
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <input type="email" id="userFormEmail" class="search-input" style="width:100%;">
+            </div>
+            <div class="form-group">
+              <label>Teléfono</label>
+              <input type="text" id="userFormPhone" class="search-input" style="width:100%;">
+            </div>
+            <div class="form-group">
+              <label>Rol</label>
+              <select id="userFormRole">
+                <option value="cliente">Cliente</option>
+                <option value="cajero">Cajero</option>
+                <option value="almacenista">Almacenista</option>
+                <option value="repartidor">Repartidor</option>
+                <option value="gerente">Gerente</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Contraseña (solo para nuevos usuarios)</label>
+              <input type="password" id="userFormPassword" class="search-input" style="width:100%;" placeholder="Contraseña">
+            </div>
+            <button class="btn-save-config" id="btnSaveUser">Guardar</button>
+            <button class="btn-save-config" id="btnCancelUser" style="background:transparent; border:1px solid var(--color-primary); color:var(--color-primary); margin-left:1rem;">Cancelar</button>
+          </div>
+        </div>
+
+        <!-- Aprobación de devoluciones (Gerente) -->
+        <div id="view-admin-devoluciones" class="dashboard-view" style="display: none;">
+          <h2>↩️ Solicitudes de devolución</h2>
+          <div id="devolucionesContainer" class="table-responsive"></div>
+        </div>
+
+        <!-- Movimientos de almacén -->
         <div id="view-warehouse-movements" class="dashboard-view" style="display: none;">
           <h2>📊 Movimientos de Stock</h2>
           <div id="movementsContainer" class="table-responsive"></div>
@@ -538,6 +676,13 @@
             <div id="adjustmentResult" style="margin-top: var(--spacing-md);"></div>
           </form>
         </div>
+
+        <!-- Alertas de stock bajo (Almacenista) -->
+        <div id="view-warehouse-alerts" class="dashboard-view" style="display: none;">
+          <h2>⚠️ Alertas de stock bajo</h2>
+          <div id="stockAlertsContainer" class="table-responsive"></div>
+        </div>
+
       </div>
     </main>
   </div>
@@ -646,6 +791,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script type="module" src="../js/dashboard.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
 </body>
 </html>

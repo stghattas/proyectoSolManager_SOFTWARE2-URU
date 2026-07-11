@@ -1,208 +1,161 @@
-// modules/cajero.js - Funcionalidades del cajero (punto de venta)
-import { getProducts, apiFetch } from '../utils/api.js';
+export function init(api, user) {
+  const posProductSearch = document.getElementById('posProductSearch');
+  const posProductList = document.getElementById('posProductList');
+  const posCartBody = document.getElementById('posCartBody');
+  const posTotalUSD = document.getElementById('posTotalUSD');
+  const posTotalVES = document.getElementById('posTotalVES');
+  const btnCheckoutPOS = document.getElementById('btnCheckoutPOS');
+  const posPaymentMethod = document.getElementById('posPaymentMethod');
+  const posCashReceived = document.getElementById('posCashReceived');
+  const posChangeDue = document.getElementById('posChangeDue');
+  const posOrdersContainer = document.getElementById('posOrdersContainer');
 
-let allProducts = [];
-let cart = [];
-let elements = {};
+  let posCart = [];
+  let allProducts = [];
 
-export function initCajero(refs) {
-  elements = {
-    posProductSearch: refs.posProductSearch,
-    posProductList: refs.posProductList,
-    posCartBody: refs.posCartBody,
-    posTotalUSD: refs.posTotalUSD,
-    posTotalVES: refs.posTotalVES,
-    btnAddToCartPOS: refs.btnAddToCartPOS,
-    btnCheckoutPOS: refs.btnCheckoutPOS,
-    posOrdersContainer: refs.posOrdersContainer,
-    posPaymentMethod: refs.posPaymentMethod,
-    posCashReceived: refs.posCashReceived,
-    posChangeDue: refs.posChangeDue
-  };
+  // Cargar todos los productos
+  (async () => {
+    try { allProducts = await api.get('/productos'); } catch (e) { console.error(e); }
+  })();
 
-  // Cargar productos al iniciar
-  loadProductsForPOS();
-  // Evento de búsqueda
-  if (elements.posProductSearch) {
-    elements.posProductSearch.addEventListener('input', filterPOSProducts);
-  }
-  // Evento checkout
-  if (elements.btnCheckoutPOS) {
-    elements.btnCheckoutPOS.addEventListener('click', processPOSCheckout);
-  }
-
-  renderPOSCart();
-  loadPOSOrders();
-}
-
-async function loadProductsForPOS() {
-  try {
-    allProducts = await getProducts();
-    renderPOSProductList(allProducts);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function filterPOSProducts() {
-  const text = elements.posProductSearch.value.trim().toLowerCase();
-  const filtered = allProducts.filter(p => p.name.toLowerCase().includes(text));
-  renderPOSProductList(filtered);
-}
-
-function renderPOSProductList(products) {
-  if (!elements.posProductList) return;
-  elements.posProductList.innerHTML = products.map(p => `
-    <div class="pos-product-item" data-id="${p.id}">
-      <span>${p.name}</span>
-      <span>$${parseFloat(p.price_usd||0).toFixed(2)}</span>
-      <button class="btn-pos-add" data-id="${p.id}">+</button>
-    </div>
-  `).join('');
-
-  // Eventos para agregar al carrito del POS
-  elements.posProductList.querySelectorAll('.btn-pos-add').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = parseInt(btn.dataset.id);
-      const product = allProducts.find(p => p.id === id);
-      if (product) {
-        addToPOSCart(product);
-      }
+  // Búsqueda de productos
+  posProductSearch.addEventListener('input', () => {
+    const term = posProductSearch.value.toLowerCase();
+    const filtrados = allProducts.filter(p => p.nombre.toLowerCase().includes(term));
+    posProductList.innerHTML = filtrados.map(p => `
+      <div class="pos-product-item">
+        <span>${p.nombre} – $${parseFloat(p.precio_usd).toFixed(2)}</span>
+        <button class="btn-pos-add" data-id="${p.id}">+</button>
+      </div>
+    `).join('');
+    document.querySelectorAll('.btn-pos-add').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const prod = allProducts.find(p => p.id === id);
+        if (prod) addToPosCart(prod);
+      });
     });
   });
-}
 
-function addToPOSCart(product) {
-  const existing = cart.find(item => item.id === product.id);
-  if (existing) {
-    existing.quantity++;
-  } else {
-    cart.push({ ...product, quantity: 1 });
+  function addToPosCart(producto) {
+    const existente = posCart.find(item => item.producto_id === producto.id);
+    if (existente) existente.cantidad += 1;
+    else posCart.push({
+      producto_id: producto.id,
+      nombre: producto.nombre,
+      precio_bs: parseFloat(producto.precio_bs),
+      precio_usd: parseFloat(producto.precio_usd),
+      cantidad: 1,
+      unidad_id: producto.unidad_medida_base_id
+    });
+    renderPosCart();
   }
-  renderPOSCart();
-}
 
-function removeFromPOSCart(id) {
-  cart = cart.filter(item => item.id !== id);
-  renderPOSCart();
-}
+  function removeFromPosCart(index) { posCart.splice(index, 1); renderPosCart(); }
 
-function updatePOSQuantity(id, delta) {
-  const item = cart.find(p => p.id === id);
-  if (!item) return;
-  item.quantity += delta;
-  if (item.quantity <= 0) {
-    removeFromPOSCart(id);
-    return;
+  function renderPosCart() {
+    posCartBody.innerHTML = posCart.map((item, idx) => `
+      <tr>
+        <td>${item.nombre}</td>
+        <td>$${item.precio_usd.toFixed(2)}</td>
+        <td>${item.cantidad}</td>
+        <td>$${(item.precio_usd * item.cantidad).toFixed(2)}</td>
+        <td><button class="cart-remove" data-idx="${idx}">🗑️</button></td>
+      </tr>
+    `).join('');
+
+    const totalUSD = posCart.reduce((sum, i) => sum + i.precio_usd * i.cantidad, 0);
+    const totalBS = posCart.reduce((sum, i) => sum + i.precio_bs * i.cantidad, 0);
+    posTotalUSD.textContent = `$${totalUSD.toFixed(2)}`;
+    posTotalVES.textContent = `Bs. ${totalBS.toFixed(2)}`;
+
+    if (posPaymentMethod.value === 'efectivo' && posCashReceived.value) {
+      const recibido = parseFloat(posCashReceived.value) || 0;
+      const cambio = recibido - totalBS;
+      posChangeDue.textContent = `Bs. ${cambio >= 0 ? cambio.toFixed(2) : '0.00'}`;
+    }
+
+    document.querySelectorAll('#posCartBody .cart-remove').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(e.target.dataset.idx);
+        removeFromPosCart(idx);
+      });
+    });
   }
-  renderPOSCart();
-}
 
-function renderPOSCart() {
-  if (!elements.posCartBody) return;
-  if (!cart.length) {
-    elements.posCartBody.innerHTML = '<tr><td colspan="5">No hay productos en la orden</td></tr>';
-    updatePOSTotals();
-    return;
-  }
-  elements.posCartBody.innerHTML = cart.map(item => {
-    const subtotalUSD = parseFloat(item.price_usd || 0) * item.quantity;
-    return `
-    <tr>
-      <td>${item.name}</td>
-      <td>$${parseFloat(item.price_usd||0).toFixed(2)}</td>
-      <td>
-        <button class="qty-btn-pos" data-id="${item.id}" data-delta="-1">-</button>
-        ${item.quantity}
-        <button class="qty-btn-pos" data-id="${item.id}" data-delta="1">+</button>
-      </td>
-      <td>$${subtotalUSD.toFixed(2)}</td>
-      <td><button class="btn-remove-pos" data-id="${item.id}">🗑️</button></td>
-    </tr>
-  `}).join('');
-
-  document.querySelectorAll('.qty-btn-pos').forEach(btn => {
-    btn.addEventListener('click', () => updatePOSQuantity(parseInt(btn.dataset.id), parseInt(btn.dataset.delta)));
+  posPaymentMethod.addEventListener('change', () => {
+    document.getElementById('posCashSection').style.display = posPaymentMethod.value === 'efectivo' ? 'block' : 'none';
+    renderPosCart();
   });
-  document.querySelectorAll('.btn-remove-pos').forEach(btn => {
-    btn.addEventListener('click', () => removeFromPOSCart(parseInt(btn.dataset.id)));
+  posCashReceived.addEventListener('input', renderPosCart);
+
+  // Venta rápida
+  btnCheckoutPOS.addEventListener('click', async () => {
+    if (posCart.length === 0) return alert('Agregue productos');
+    const metodo = posPaymentMethod.value;
+    try {
+      await api.post('/cajero/venta', {
+        items: posCart.map(i => ({
+          producto_id: i.producto_id,
+          cantidad: i.cantidad,
+          unidad_id: i.unidad_id
+        })),
+        metodo_pago: metodo,
+        datos_pago: {}
+      });
+      posCart = [];
+      renderPosCart();
+      alert('Venta realizada');
+      loadDayOrders();
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
   });
 
-  updatePOSTotals();
-}
+  // Caja
+  document.getElementById('btnOpenCashier')?.addEventListener('click', async () => {
+    const inicialBS = document.getElementById('cashierOpeningVES').value;
+    const inicialUSD = document.getElementById('cashierOpeningUSD').value;
+    if (!inicialBS || !inicialUSD) return alert('Ingrese montos iniciales');
+    try {
+      const res = await api.post('/cajero/abrir-caja', { inicial_bs: parseFloat(inicialBS), inicial_usd: parseFloat(inicialUSD) });
+      document.getElementById('cashierStatus').textContent = 'Caja abierta – ID: ' + res.id;
+    } catch (e) { alert(e.message); }
+  });
 
-function updatePOSTotals() {
-  const totalUSD = cart.reduce((sum, item) => sum + parseFloat(item.price_usd || 0) * item.quantity, 0);
-  const totalVES = cart.reduce((sum, item) => sum + parseFloat(item.price_ves || 0) * item.quantity, 0);
-  if (elements.posTotalUSD) elements.posTotalUSD.textContent = `$${totalUSD.toFixed(2)}`;
-  if (elements.posTotalVES) elements.posTotalVES.textContent = `Bs. ${totalVES.toFixed(2)}`;
-}
+  document.getElementById('btnCloseCashier')?.addEventListener('click', async () => {
+    const finalBS = prompt('Monto final en Bs.:');
+    const finalUSD = prompt('Monto final en USD:');
+    if (!finalBS || !finalUSD) return;
+    // Obtener la caja abierta (necesitaríamos un endpoint /cajero/caja-abierta, asumimos el ID guardado)
+    // Simplificamos: usar un ID fijo o pedirlo. Por ahora usaremos un prompt para el ID de caja.
+    const cajaId = prompt('ID de la caja abierta:');
+    try {
+      await api.post('/cajero/cerrar-caja', {
+        caja_id: cajaId,
+        final_bs: parseFloat(finalBS),
+        final_usd: parseFloat(finalUSD),
+        comentario: 'Cierre manual'
+      });
+      document.getElementById('cashierStatus').textContent = 'Caja cerrada';
+    } catch (e) { alert(e.message); }
+  });
 
-async function processPOSCheckout() {
-  if (!cart.length) { alert('Agrega productos a la orden.'); return; }
-  const totalUSD = cart.reduce((s, i) => s + parseFloat(i.price_usd || 0) * i.quantity, 0);
-  const totalVES = cart.reduce((s, i) => s + parseFloat(i.price_ves || 0) * i.quantity, 0);
-  const metodo = elements.posPaymentMethod?.value || 'efectivo';
-
-  // Simular pago y crear pedido
-  const order = {
-    id: Date.now(),
-    date: new Date().toLocaleString(),
-    totalUSD,
-    totalVES,
-    status: 'pagado',
-    metodoEntrega: 'recogida',
-    direccion: 'En tienda',
-    items: cart.map(i => ({ name: i.name, quantity: i.quantity, priceUSD: parseFloat(i.price_usd||0), priceVES: parseFloat(i.price_ves||0) }))
-  };
-  const orders = JSON.parse(localStorage.getItem('solOrders') || '[]');
-  orders.push(order);
-  localStorage.setItem('solOrders', JSON.stringify(orders));
-
-  // Pago simulado
-  const paymentPayload = {
-    id_pedido: order.id,
-    monto_ves: totalVES,
-    monto_usd: totalUSD,
-    monto_eur: 0,
-    tasa_usd_ves_usada: 590,
-    tasa_eur_ves_usada: 690,
-    id_cajero: window.currentUserId || 0
-  };
-  try {
-    await apiFetch('/payments', { method: 'POST', body: JSON.stringify(paymentPayload) });
-  } catch (e) {
-    const offlinePayments = JSON.parse(localStorage.getItem('offlinePayments') || '[]');
-    offlinePayments.push(paymentPayload);
-    localStorage.setItem('offlinePayments', JSON.stringify(offlinePayments));
+  // Pedidos del día
+  async function loadDayOrders() {
+    try {
+      const pedidos = await api.get('/cajero/pedidos-dia');
+      if (posOrdersContainer) {
+        posOrdersContainer.innerHTML = pedidos.map(p => `
+          <div class="order-card">
+            <div class="order-header">
+              <span>Pedido #${p.id.substring(0,8)}</span>
+              <span>${p.estado || ''} - $${p.total_usd}</span>
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch (e) { console.error(e); }
   }
-
-  // Calcular cambio si es efectivo
-  if (metodo === 'efectivo' && elements.posCashReceived) {
-    const recibido = parseFloat(elements.posCashReceived.value) || 0;
-    const cambio = recibido - totalVES;
-    if (elements.posChangeDue) elements.posChangeDue.textContent = cambio > 0 ? `Bs. ${cambio.toFixed(2)}` : 'Bs. 0.00';
-  }
-
-  // Limpiar carrito
-  cart = [];
-  renderPOSCart();
-  loadPOSOrders();
-  alert('✅ Venta registrada.');
-}
-
-async function loadPOSOrders() {
-  if (!elements.posOrdersContainer) return;
-  const orders = JSON.parse(localStorage.getItem('solOrders') || '[]');
-  const recent = orders.slice(-10).reverse();
-  if (!recent.length) {
-    elements.posOrdersContainer.innerHTML = '<p>No hay pedidos recientes.</p>';
-    return;
-  }
-  elements.posOrdersContainer.innerHTML = recent.map(o => `
-    <div class="order-card" style="margin-bottom:0.5rem;">
-      <strong>#${o.id}</strong> - ${o.date}<br>
-      Total: $${o.totalUSD.toFixed(2)} | Estado: ${o.status}
-    </div>
-  `).join('');
+  loadDayOrders();
 }

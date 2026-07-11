@@ -1,73 +1,67 @@
-// modules/repartidor.js - Funcionalidades del repartidor
-import { apiFetch } from '../utils/api.js';
+export function init(api, user) {
+  const deliveriesContainer = document.getElementById('deliveriesContainer');
 
-let assignedDeliveries = [];
-let elements = {};
-
-export function initRepartidor(refs) {
-  elements = {
-    deliveriesContainer: refs.deliveriesContainer
-  };
-
-  loadAssignedDeliveries();
-}
-
-async function loadAssignedDeliveries() {
-  // Por ahora simulamos con localStorage hasta tener endpoint real
-  // En producción, usaríamos apiFetch('/entregas/repartidor/' + userId)
-  const orders = JSON.parse(localStorage.getItem('solOrders') || '[]');
-  // Filtrar pedidos que podrían estar en estado "enviado" o "pendiente" (simulación)
-  assignedDeliveries = orders.filter(o => ['enviado', 'pendiente', 'confirmado'].includes(o.status));
-  renderDeliveries();
-}
-
-function renderDeliveries() {
-  if (!elements.deliveriesContainer) return;
-  if (!assignedDeliveries.length) {
-    elements.deliveriesContainer.innerHTML = '<p>No tienes entregas asignadas.</p>';
-    return;
-  }
-  elements.deliveriesContainer.innerHTML = assignedDeliveries.map(order => `
-    <div class="delivery-card">
-      <div class="delivery-header">
-        <strong>Pedido #${order.id}</strong>
-        <span class="order-status ${order.status}">${order.status.toUpperCase()}</span>
-      </div>
-      <div>${order.date}</div>
-      <div>Dirección: ${order.direccion || 'No especificada'}</div>
-      <div>Total: $${order.totalUSD.toFixed(2)}</div>
-      <div style="margin-top:0.5rem;">
-        <button class="btn-update-delivery" data-id="${order.id}" data-status="recogido">📦 Recogido</button>
-        <button class="btn-update-delivery" data-id="${order.id}" data-status="en_ruta">🛵 En ruta</button>
-        <button class="btn-update-delivery" data-id="${order.id}" data-status="entregado">✅ Entregado</button>
-      </div>
-    </div>
-  `).join('');
-
-  // Eventos para actualizar estado
-  elements.deliveriesContainer.querySelectorAll('.btn-update-delivery').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = parseInt(btn.dataset.id);
-      const newStatus = btn.dataset.status;
-      updateDeliveryStatus(id, newStatus);
-    });
-  });
-}
-
-async function updateDeliveryStatus(orderId, newStatus) {
-  // Actualizar en localStorage (simulación)
-  const orders = JSON.parse(localStorage.getItem('solOrders') || '[]');
-  const order = orders.find(o => o.id === orderId);
-  if (order) {
-    order.status = newStatus;
-    localStorage.setItem('solOrders', JSON.stringify(orders));
-    // Intentar sincronizar con backend si existe endpoint
+  async function loadDeliveries() {
     try {
-      await apiFetch(`/deliveries/${orderId}/status`, {
-        method: 'PUT',
-        body: JSON.stringify({ estado: newStatus })
-      });
-    } catch (e) { /* ignorar */ }
+      const pedidos = await api.get('/repartidor/pedidos');
+      if (deliveriesContainer) {
+        deliveriesContainer.innerHTML = pedidos.map(p => `
+          <div class="delivery-card">
+            <div class="delivery-header">
+              <span>${p.cliente_nombre || 'Cliente'}</span>
+              <span>${p.estado}</span>
+            </div>
+            <div>Dirección: ${p.direccion || 'No especificada'}</div>
+            <div>Total: $${p.total_usd} / Bs.${p.total_bs}</div>
+            <div class="delivery-actions">
+              <button class="btn-update-delivery" data-id="${p.id}" data-estado="en_camino">En Camino</button>
+              <button class="btn-update-delivery" data-id="${p.id}" data-estado="entregado">Entregado</button>
+              <button class="btn-update-delivery" data-id="${p.id}" data-estado="no_localizado">No Localizado</button>
+            </div>
+            <button class="btn-chat-delivery" data-id="${p.id}">💬 Chat</button>
+          </div>
+        `).join('');
+
+        document.querySelectorAll('.btn-update-delivery').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const pedidoId = btn.dataset.id;
+            const estado = btn.dataset.estado;
+            try {
+              await api.put('/repartidor/estado', { pedido_id: pedidoId, estado });
+              alert('Estado actualizado');
+              loadDeliveries();
+            } catch (err) { alert(err.message); }
+          });
+        });
+
+        document.querySelectorAll('.btn-chat-delivery').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const chatModal = document.getElementById('chatModal');
+            if (chatModal) chatModal.style.display = 'flex';
+            const chatInput = document.getElementById('chatMessageInput');
+            if (chatInput) chatInput.dataset.pedidoId = btn.dataset.id;
+          });
+        });
+      }
+    } catch (e) { console.error(e); }
   }
-  loadAssignedDeliveries();
+
+  document.getElementById('btnSendMessage')?.addEventListener('click', async () => {
+    const input = document.getElementById('chatMessageInput');
+    const mensaje = input.value.trim();
+    const pedidoId = input.dataset.pedidoId;
+    if (!mensaje || !pedidoId) return;
+    try {
+      // Si tienes endpoint de mensajes, úsalo aquí
+      const chatDiv = document.getElementById('chatMessages');
+      chatDiv.innerHTML += `<div class="chat-message mine"><div class="chat-bubble mine">${mensaje}</div></div>`;
+      input.value = '';
+    } catch (e) { alert('Error al enviar mensaje'); }
+  });
+
+  document.getElementById('closeChatModal')?.addEventListener('click', () => {
+    document.getElementById('chatModal').style.display = 'none';
+  });
+
+  loadDeliveries();
 }

@@ -1,69 +1,87 @@
-// modules/gerente.js - Funcionalidades exclusivas del gerente
-import { apiFetch } from '../utils/api.js';
-
-export function initGerente(refs) {
-  const reportesContainer = refs.reportesContainer;
-  if (!reportesContainer) return;
-
-  // Cargar reportes al entrar
-  document.getElementById('menu-admin-reportes')?.addEventListener('click', cargarReportes);
-
-  async function cargarReportes() {
-    reportesContainer.innerHTML = '<p>Cargando reportes...</p>';
+export function init(api, user) {
+  // Gestión de productos
+  async function loadAdminProducts() {
+    const grid = document.getElementById('adminProductGrid');
+    if (!grid) return;
     try {
-      // Obtener datos para reportes
-      const [productos, movimientos, pedidos] = await Promise.all([
-        apiFetch('/warehouse/products').catch(() => []),
-        apiFetch('/warehouse/movements').catch(() => []),
-        apiFetch('/warehouse/purchases').catch(() => [])
-      ]);
-
-      renderReportes(productos, movimientos, pedidos);
-    } catch (e) {
-      reportesContainer.innerHTML = '<p>Error al cargar reportes.</p>';
-    }
+      const productos = await api.get('/productos');
+      grid.innerHTML = productos.map(p => `
+        <div class="product-card">
+          <div class="product-emoji">${p.imagen_url || '📦'}</div>
+          <div class="product-info">
+            <h3>${p.nombre}</h3>
+            <div class="admin-card-buttons">
+              <button class="btn-admin-edit" data-id="${p.id}">Editar</button>
+              <button class="btn-admin-delete" data-id="${p.id}">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) { console.error(e); }
   }
+  document.getElementById('btnAddProduct')?.addEventListener('click', () => alert('Crear producto (pendiente formulario)'));
+  window.addEventListener('hashchange', () => {
+    if (window.location.hash === '#view-admin-products') loadAdminProducts();
+  });
+  if (window.location.hash === '#view-admin-products') loadAdminProducts();
 
-  function renderReportes(productos, movimientos, pedidos) {
-    const totalProductos = productos.length;
-    const productosActivos = productos.filter(p => p.active !== false).length;
-    const totalMovimientos = movimientos.length;
-    const ultimosMovimientos = movimientos.slice(0, 5);
-    const totalCompras = pedidos.length;
-    const totalComprasVES = pedidos.reduce((sum, p) => sum + parseFloat(p.total_compra_ves || 0), 0);
-    const totalComprasUSD = pedidos.reduce((sum, p) => sum + parseFloat(p.total_compra_usd || 0), 0);
+  // Gestión de usuarios
+  document.getElementById('btnAddUser')?.addEventListener('click', () => {
+    document.getElementById('userFormContainer').style.display = 'block';
+  });
+  document.getElementById('btnCancelUser')?.addEventListener('click', () => {
+    document.getElementById('userFormContainer').style.display = 'none';
+  });
+  document.getElementById('btnSaveUser')?.addEventListener('click', async () => {
+    const data = {
+      nombre: document.getElementById('userFormName').value,
+      apellido: document.getElementById('userFormLastName').value,
+      email: document.getElementById('userFormEmail').value,
+      telefono: document.getElementById('userFormPhone').value,
+      password: document.getElementById('userFormPassword').value,
+      rol: document.getElementById('userFormRole').value,
+    };
+    try {
+      await api.post('/gerente/usuarios', data);
+      alert('Usuario creado correctamente');
+      document.getElementById('userFormContainer').style.display = 'none';
+      loadUsers();
+    } catch (e) { alert(e.message); }
+  });
 
-    reportesContainer.innerHTML = `
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
-        <div class="report-card">
-          <h3>📦 Productos</h3>
-          <p><strong>Total:</strong> ${totalProductos}</p>
-          <p><strong>Activos:</strong> ${productosActivos}</p>
-        </div>
-        <div class="report-card">
-          <h3>📊 Movimientos</h3>
-          <p><strong>Total:</strong> ${totalMovimientos}</p>
-        </div>
-        <div class="report-card">
-          <h3>🛒 Compras</h3>
-          <p><strong>Total:</strong> ${totalCompras}</p>
-          <p><strong>VES:</strong> Bs. ${totalComprasVES.toFixed(2)}</p>
-          <p><strong>USD:</strong> $${totalComprasUSD.toFixed(2)}</p>
-        </div>
-      </div>
-      <div class="report-section">
-        <h3>Últimos movimientos</h3>
-        ${ultimosMovimientos.length ? 
-          `<table class="cart-table"><thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th></tr></thead><tbody>
-            ${ultimosMovimientos.map(m => `
-              <tr>
-                <td>${new Date(m.fecha).toLocaleString()}</td>
-                <td>${m.producto_nombre || '?'}</td>
-                <td>${m.tipo}</td>
-                <td style="color:${parseFloat(m.cantidad)>=0?'green':'red'}">${m.cantidad}</td>
-              </tr>`).join('')}
-          </tbody></table>` : '<p>No hay movimientos.</p>'}
-      </div>
-    `;
+  async function loadUsers() {
+    const container = document.getElementById('usersTableContainer');
+    if (!container) return;
+    try {
+      const usuarios = await api.get('/gerente/usuarios');
+      container.innerHTML = `
+        <table class="cart-table">
+          <tr><th>Nombre</th><th>Email</th><th>Rol</th></tr>
+          ${usuarios.map(u => `<tr><td>${u.nombre} ${u.apellido}</td><td>${u.email}</td><td>${u.rol}</td></tr>`).join('')}
+        </table>`;
+    } catch (e) { console.error(e); }
   }
+  window.addEventListener('hashchange', () => {
+    if (window.location.hash === '#view-admin-users') loadUsers();
+  });
+  if (window.location.hash === '#view-admin-users') loadUsers();
+
+  // Reportes
+  async function loadReports() {
+    const container = document.getElementById('reportesContainer');
+    if (!container) return;
+    try {
+      const data = await api.get('/gerente/reportes/ventas');
+      container.innerHTML = '<h3>Ventas últimos 30 días</h3>' +
+        data.map(d => `<div>${d.fecha}: $${d.total_usd} / Bs.${d.total_bs}</div>`).join('');
+    } catch (e) { container.innerHTML = 'Error al cargar reportes'; }
+  }
+  window.addEventListener('hashchange', () => {
+    if (window.location.hash === '#view-admin-reportes') loadReports();
+  });
+  if (window.location.hash === '#view-admin-reportes') loadReports();
+
+  // Devoluciones (placeholder)
+  const devolucionesContainer = document.getElementById('devolucionesContainer');
+  if (devolucionesContainer) devolucionesContainer.innerHTML = '<p>No hay solicitudes de devolución.</p>';
 }

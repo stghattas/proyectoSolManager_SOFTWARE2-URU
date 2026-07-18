@@ -3,38 +3,68 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sol-Manager</title>
-  <!-- Redirección inmediata a pages/index.html -->
-  <meta http-equiv="refresh" content="0; url=pages/index.html">
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background: #f1f5f9;
-      color: #0f172a;
-    }
-    .loader {
-      text-align: center;
-    }
-    .loader span {
-      display: inline-block;
-      animation: pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 1; }
-    }
-  </style>
+  <title>Sol-Manager | Acceso</title>
+  <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
-  <div class="loader">
-    <span>☀️</span>
-    <p>Cargando Sol-Manager...</p>
-    <small>Redirigiendo a la página de inicio</small>
+  <button id="themeToggle" class="theme-toggle">🌙 Modo oscuro</button>
+
+  <div class="auth-card">
+    <div class="card-header">
+      <div class="logo">☀️ Sol-Manager</div>
+      <div class="subtitle">Accede a tu cuenta o crea una nueva</div>
+    </div>
+
+    <div class="tabs">
+      <button id="tabLogin" class="tab-btn active">Iniciar sesión</button>
+      <button id="tabRegister" class="tab-btn">Registrarse</button>
+    </div>
+
+    <div class="auth-content">
+      <!-- Formulario de inicio de sesión -->
+      <div id="loginForm">
+        <div class="form-group">
+          <label>Correo electrónico</label>
+          <input type="email" id="loginEmail" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" id="loginPassword" placeholder="">
+        </div>
+        <button id="doLogin" class="btn-primary">Ingresar</button>
+      </div>
+
+      <!-- Formulario de registro -->
+      <div id="registerForm" style="display: none;">
+        <div class="form-group">
+          <label>Nombre</label>
+          <input type="text" id="regName" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Apellido</label>
+          <input type="text" id="regLastName" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Cédula</label>
+          <input type="text" id="regCedula" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Correo electrónico</label>
+          <input type="email" id="regEmail" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" id="regPassword" placeholder="">
+        </div>
+        <button id="doRegister" class="btn-primary">Crear cuenta</button>
+      </div>
+
+      <!-- Área de mensajes (importante) -->
+      <div id="messageArea" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: 0.5rem; font-weight: 600; text-align: center;"></div>
+    </div>
   </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/index.js"></script>
 </body>
 </html>

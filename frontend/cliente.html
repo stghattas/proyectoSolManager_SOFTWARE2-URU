@@ -1,0 +1,678 @@
+<!DOCTYPE html><html lang="es"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sol-Manager | Panel</title>
+  <link rel="stylesheet" href="./css/styles.css">
+  <style>
+    /* Estilos adicionales */
+    .delivery-map-placeholder {
+      background: #e2e8f0;
+      height: 300px;
+      border-radius: var(--border-radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #64748b;
+      font-size: 1.2rem;
+      margin-bottom: var(--spacing-md);
+    }
+    body.dark .delivery-map-placeholder {
+      background: #1e293b;
+      color: #94a3b8;
+    }
+    .order-card {
+      background: var(--color-bg-card);
+      border-radius: var(--border-radius-md);
+      padding: var(--spacing-md);
+      margin-bottom: var(--spacing-md);
+      border: 1px solid var(--border-color);
+    }
+    .order-header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+      color: var(--color-text-dark);
+    }
+    .order-status {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .order-status.entregado { background: #dcfce7; color: #166534; }
+    .order-status.pendiente { background: #fef3c7; color: #92400e; }
+    .product-detail-modal,
+    .payment-modal,
+    .chat-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .product-detail-content,
+    .payment-content,
+    .chat-content {
+      background: var(--color-bg-card);
+      max-width: 500px;
+      width: 90%;
+      padding: var(--spacing-xl);
+      border-radius: var(--border-radius-lg);
+      position: relative;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .close-modal {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--color-text-light);
+    }
+    .form-group select {
+      padding: var(--spacing-sm) var(--spacing-md);
+      border-radius: var(--border-radius-md);
+      border: var(--border-width) solid var(--input-border);
+      background: var(--input-bg);
+      font-size: 0.95rem;
+      color: var(--color-text-dark);
+      width: 100%;
+    }
+    .form-group select:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+    .table-responsive {
+      overflow-x: auto;
+    }
+    .table-responsive table {
+      min-width: 700px;
+    }
+    .catalog-toolbar {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: var(--spacing-lg);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .catalog-toolbar select,
+    .catalog-toolbar input {
+      padding: 0.5rem 1rem;
+      border-radius: var(--border-radius-md);
+      border: 1px solid var(--input-border);
+      background: var(--input-bg);
+      color: var(--color-text-dark);
+    }
+    .order-details {
+      display: none;
+      margin-top: var(--spacing-md);
+      background: var(--color-bg-hover);
+      padding: var(--spacing-md);
+      border-radius: var(--border-radius-md);
+    }
+    .order-details.open {
+      display: block;
+    }
+    .config-section {
+      background: var(--color-bg-card);
+      border-radius: var(--border-radius-md);
+      padding: var(--spacing-lg);
+      margin-bottom: var(--spacing-lg);
+    }
+    .config-section h3 {
+      margin-bottom: var(--spacing-md);
+    }
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .toggle-switch input[type="checkbox"] {
+      width: 40px;
+      height: 20px;
+      accent-color: var(--color-primary);
+    }
+    .btn-save-config,
+    .btn-pay {
+      background: var(--color-primary);
+      color: white;
+      padding: 0.75rem 2rem;
+      border: none;
+      border-radius: var(--border-radius-md);
+      cursor: pointer;
+      margin-top: 1rem;
+    }
+    .back-button {
+      background: transparent;
+      border: 1px solid var(--color-primary);
+      color: var(--color-primary);
+      padding: 0.5rem 1rem;
+      border-radius: var(--border-radius-md);
+      cursor: pointer;
+      margin-right: auto;
+      display: none;
+    }
+    .search-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .category-card {
+      background: var(--color-bg-card);
+      border-radius: var(--border-radius-md);
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      border: 1px solid var(--border-color);
+      transition: all 0.2s;
+    }
+    .category-card:hover, .category-card.active {
+      border-color: var(--color-primary);
+      box-shadow: 0 2px 8px rgba(245,158,11,0.3);
+    }
+    .category-icon {
+      font-size: 1.5rem;
+    }
+    .pos-product-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .btn-pos-add {
+      background: var(--color-primary);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+    }
+    .delivery-card {
+      background: var(--color-bg-card);
+      border-radius: var(--border-radius-md);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border-color);
+    }
+    .delivery-header {
+      display: flex;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+    .btn-update-delivery {
+      padding: 0.3rem 0.6rem;
+      margin-right: 0.3rem;
+      border: 1px solid var(--color-primary);
+      background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .report-card {
+      background: var(--color-bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-md);
+      padding: 1.5rem;
+    }
+    .report-section {
+      background: var(--color-bg-card);
+      border-radius: var(--border-radius-md);
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+    /* Estilos para el chat */
+    .chat-messages {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid var(--border-color);
+      border-radius: var(--border-radius-md);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      background: var(--color-bg-hover);
+    }
+    .chat-message {
+      margin-bottom: 0.75rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-message.mine {
+      align-items: flex-end;
+    }
+    .chat-message.other {
+      align-items: flex-start;
+    }
+    .chat-bubble {
+      max-width: 80%;
+      padding: 0.6rem 1rem;
+      border-radius: 18px;
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+    body.dark .chat-bubble {
+      background: #334155;
+      color: #f1f5f9;
+    }
+    .chat-bubble.mine {
+      background: var(--color-primary);
+      color: white;
+    }
+    .chat-input-area {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .chat-input-area input {
+      flex: 1;
+    }
+    .btn-admin-add {
+      background: var(--color-primary);
+      color: white;
+      border: none;
+      padding: 0.5rem 1.2rem;
+      border-radius: var(--border-radius-md);
+      cursor: pointer;
+    }
+
+    /* Separación visual de Configuración */
+    .sidebar-menu {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-menu hr {
+      margin-top: auto !important;
+      margin-bottom: 0.5rem;
+    }
+    #menu-config {
+      margin-top: auto !important;
+      border-top: 1px solid var(--border-color);
+      padding-top: 0.5rem;
+    }
+
+    /* Modales genéricos */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    .modal-box {
+      background: var(--color-bg-card);
+      max-width: 500px;
+      width: 90%;
+      padding: var(--spacing-xl);
+      border-radius: var(--border-radius-lg);
+      position: relative;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body class="dashboard-body">
+
+  <div class="dashboard-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">☀️ Sol-Manager</div>
+        <div class="currency-badge" id="rateBadge">USD 590 VES | EUR 690</div>
+      </div>
+      
+      <nav class="sidebar-menu">
+        <!-- Cliente -->
+        <button id="menu-home" class="menu-btn active"><span>🏠</span> Inicio</button>
+        <button id="menu-catalog" class="menu-btn"><span>📂</span> Catálogo</button>
+        <button id="menu-cart" class="menu-btn"><span>🛒</span> Carrito</button>
+        <button id="menu-orders" class="menu-btn"><span>📦</span> Mis pedidos</button>
+        <button id="menu-delivery" class="menu-btn"><span>🚚</span> Rastreo de entrega</button>
+        <button id="menu-returns" class="menu-btn"><span>↩️</span> Mis devoluciones</button>
+        <button id="menu-config" class="menu-btn"><span>⚙️</span> Configuración</button>
+        
+        <!-- Cajero -->
+        
+        
+
+        <!-- Repartidor -->
+        
+
+        <!-- Admin / Gerente -->
+        
+        
+        
+        
+        
+        
+
+        <!-- Almacenista -->
+        
+        
+        
+        
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-info" id="sidebarUserName">Cargando...</div>
+        <div class="user-role" id="sidebarUserRole">Rol: ...</div>
+        <a id="btnLogout" class="logout-link">Cerrar sesión</a>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="top-header">
+        <button id="btnBack" class="back-button">← Volver</button>
+        <div id="searchGroup" class="search-group">
+          <span style="padding: var(--spacing-sm) 0 var(--spacing-sm) var(--spacing-md);">🔍</span>
+          <input type="text" id="searchInput" placeholder="Buscar productos..." class="search-input">
+          <button id="btnSearch" class="btn-search">Buscar</button>
+        </div>
+        <button id="themeToggle" class="theme-toggle" style="margin-left: auto;">🌙 Modo oscuro</button>
+      </header>
+
+      <div class="content-body">
+        
+        <!-- ======== VISTA INICIO ======== -->
+        <div id="view-home" class="dashboard-view" style="display: block;">
+          <h2 style="color: var(--color-text-dark); margin-bottom: var(--spacing-lg);">Productos destacados</h2>
+          <div class="product-grid" id="productGridContainer"></div>
+        </div>
+
+        <!-- ======== VISTA CATÁLOGO ======== -->
+        <div id="view-catalog" class="dashboard-view" style="display: none;">
+          <h2 style="margin-bottom: 0.5rem;">📂 Catálogo de productos</h2>
+          <p class="subtitle" style="margin-bottom: var(--spacing-md);">Explora, filtra y ordena</p>
+          
+          <div class="catalog-toolbar">
+            <input type="text" id="catalogSearch" placeholder="Buscar en catálogo..." style="flex:1; max-width: 300px;">
+            <select id="catalogSort">
+              <option value="name-asc">Nombre A-Z</option>
+              <option value="name-desc">Nombre Z-A</option>
+              <option value="price-asc">Precio USD ↑</option>
+              <option value="price-desc">Precio USD ↓</option>
+            </select>
+            <span id="catalogCount" style="color: var(--color-text-light);"></span>
+          </div>
+          
+          <div class="catalog-categories-grid" id="catalogCategories"></div>
+          <div class="product-grid" id="catalogProductGrid" style="margin-top: var(--spacing-lg);"></div>
+        </div>
+
+        <!-- ======== VISTA CARRITO ======== -->
+        <div id="view-cart" class="dashboard-view" style="display: none;">
+          <div class="cart-header-title">
+            <h2>🛒 Mi carrito</h2>
+            <p class="subtitle" style="margin-bottom: var(--spacing-md);">Revisa tus productos antes de confirmar</p>
+          </div>
+          <div class="cart-container">
+            <div class="cart-items-wrapper">
+              <table class="cart-table">
+                <thead>
+                  <tr><th>Producto</th><th>Precio</th><th>Cant.</th><th>Total</th><th>Acción</th></tr>
+                </thead>
+                <tbody id="cartTableBody"></tbody>
+              </table>
+            </div>
+            <div class="cart-summary-card">
+              <h3>Resumen del pedido</h3>
+              <hr class="summary-divider">
+              <div class="summary-row"><span>Subtotal:</span><span id="summarySubtotal">$0.00</span></div>
+              <div class="summary-row"><span>Envío:</span><span class="text-green">$0.00</span></div>
+              <hr class="summary-divider">
+              <div class="summary-total-block">
+                <div class="total-row"><span class="total-label">Total (USD):</span><span id="summaryTotalUSD" class="total-usd">$0.00</span></div>
+                <div class="total-ves-row"><span>En bolívares:</span><strong id="summaryTotalVES">Bs. 0.00</strong></div>
+              </div>
+              <button class="btn-checkout" id="btnCheckout">Proceder al pago ✨</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ======== VISTA MIS PEDIDOS ======== -->
+        <div id="view-orders" class="dashboard-view" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+            <h2>📦 Mis pedidos</h2>
+            <select id="ordersFilter" style="padding: 0.5rem 1rem; border-radius: var(--border-radius-md);">
+              <option value="pendiente" selected="">Pendiente</option>
+              <option value="entregado">Entregado</option>
+            </select>
+          </div>
+          <div id="ordersContainer"></div>
+        </div>
+
+        <!-- ======== VISTA MIS DEVOLUCIONES ======== -->
+<div id="view-returns" class="dashboard-view" style="display: none;">
+  <h2>Mis devoluciones</h2>
+  <div id="returnsContainer"></div>
+</div>
+
+        <!-- ======== VISTA RASTREO ======== -->
+        <div id="view-delivery" class="dashboard-view" style="display: none;">
+          <button id="openChatFromDelivery" style="display:none;">💬 Chat con repartidor</button>
+          <h2>🚚 Rastreo de entrega</h2>
+          <div class="delivery-map-placeholder">Mapa en tiempo real<br></div>
+          <div style="background: var(--color-bg-card); padding: var(--spacing-md); border-radius: var(--border-radius-md);">
+            <p><strong>Estado actual:</strong> <span id="deliveryStatus" style="color: #f59e0b;">En camino</span></p>
+            <p><strong>Tiempo estimado:</strong> <span id="deliveryETA">15 min</span></p>
+            <p><strong>Repartidor:</strong> <span id="deliveryCourier">Juan Pérez</span></p>
+          </div>
+        </div>
+
+        <!-- ======== VISTA CONFIGURACIÓN ======== -->
+        <div id="view-config" class="dashboard-view" style="display: none;">
+          <h2>⚙️ Configuración</h2>
+          
+          <div class="config-section">
+            <h3>👤 Perfil</h3>
+            <div class="form-group">
+              <label>Nombre completo</label>
+              <input type="text" id="configName" class="search-input" style="width:100%;">
+            </div>
+            <div class="form-group">
+              <label>Teléfono</label>
+              <input type="text" id="configPhone" class="search-input" style="width:100%;">
+            </div>
+            <div class="form-group">
+              <label>Dirección de envío predeterminada</label>
+              <input type="text" id="configAddress" class="search-input" style="width:100%;" placeholder="Ej. Calle 123, Maracaibo">
+            </div>
+            <button class="btn-save-config" id="btnSaveProfile">💾 Guardar perfil</button>
+          </div>
+          
+          <div class="config-section">
+            <h3>🔒 Seguridad</h3>
+            <div class="form-group">
+              <label>Contraseña actual</label>
+              <input type="password" id="configCurrentPassword" class="search-input" style="width:100%;" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+              <label>Nueva contraseña</label>
+              <input type="password" id="configNewPassword" class="search-input" style="width:100%;" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+              <label>Confirmar nueva contraseña</label>
+              <input type="password" id="configConfirmPassword" class="search-input" style="width:100%;" placeholder="••••••••">
+            </div>
+            <button class="btn-save-config" id="btnChangePassword">🔑 Cambiar contraseña</button>
+            <span id="configPasswordMsg" style="margin-left: 1rem; color: var(--color-primary);"></span>
+          </div>
+          
+          <div class="config-section">
+            <h3>🔔 Notificaciones</h3>
+            <div class="toggle-switch">
+              <label>Ofertas y promociones</label>
+              <input type="checkbox" id="configNotifOffers" checked="">
+            </div>
+            <div class="toggle-switch">
+              <label>Estado de pedidos</label>
+              <input type="checkbox" id="configNotifOrders" checked="">
+            </div>
+            <button class="btn-save-config" id="btnSaveNotifications">💾 Guardar preferencias</button>
+          </div>
+        </div>
+
+        <!-- ======== VISTA CAJERO (POS) ======== -->
+ <!-- ======== VISTA CAJERO (POS) MEJORADA ======== -->
+
+    
+
+        <!-- ======== VISTA CAJERO - CLIENTES ======== -->
+        
+
+        <!-- ======== VISTA REPARTIDOR (ENTREGAS) ======== -->
+        
+
+        <!-- Chat con cliente (modal) -->
+        <div class="chat-modal" id="chatModal">
+          <div class="chat-content">
+            <span class="close-modal" id="closeChatModal">×</span>
+            <h2>💬 Chat con el cliente</h2>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-area">
+              <input type="text" id="chatMessageInput" placeholder="Escribe un mensaje..." style="flex:1; padding:0.5rem; border-radius:var(--border-radius-md); border:1px solid var(--input-border);">
+              <button id="btnSendMessage" class="btn-save-config" style="margin-top:0;">Enviar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ======== VISTAS ADMIN/ALMACENISTA ======== -->
+        
+        
+        
+        
+
+        <!-- Gestión de usuarios (Gerente) -->
+        
+
+        <!-- Aprobación de devoluciones (Gerente) -->
+        
+
+        <!-- Movimientos de almacén -->
+        
+        
+        
+
+        <!-- Alertas de stock bajo (Almacenista) -->
+        
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal de detalle de producto -->
+  <div class="product-detail-modal" id="productDetailModal">
+    <div class="product-detail-content">
+      <span class="close-modal" id="closeModal">×</span>
+      <div id="productDetailBody">
+        <h2 id="detailName"></h2>
+        <p id="detailUnit"></p>
+        <p id="detailPrice"></p>
+        <button class="btn-primary" id="detailAddToCart">Agregar al carrito</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de pago -->
+  <div class="payment-modal" id="paymentModal">
+    <div class="payment-content">
+      <span class="close-modal" id="closePaymentModal">×</span>
+      
+      <div id="paymentFormFields">
+        <h2>💳 Finalizar pedido</h2>
+        <div class="form-group">
+          <label>Dirección de entrega</label>
+          <input type="text" id="paymentAddress" class="search-input" style="width:100%;" placeholder="Calle, casa, referencia">
+        </div>
+        <div class="form-group">
+          <label>Método de pago</label>
+          <select id="paymentMethodSelect" style="width:100%; padding:0.5rem;">
+            <option value="">Seleccione...</option>
+            <option value="pago_movil">PagoMóvil</option>
+            <option value="transferencia">Transferencia</option>
+            <option value="tarjeta">Tarjeta</option>
+          </select>
+        </div>
+
+        <div id="pagoMovilFields" style="display:none;">
+          <div class="form-group">
+            <label>Banco</label>
+            <input type="text" id="pmBanco" class="search-input" placeholder="Ej. Mercantil, Venezuela">
+          </div>
+          <div class="form-group">
+            <label>Teléfono registrado</label>
+            <input type="text" id="pmTelefono" class="search-input" placeholder="0412-1234567">
+          </div>
+          <div class="form-group">
+            <label>Cédula</label>
+            <input type="text" id="pmCedula" class="search-input" placeholder="V-12345678">
+          </div>
+        </div>
+
+        <div id="transferenciaFields" style="display:none;">
+          <div class="form-group">
+            <label>Banco origen</label>
+            <input type="text" id="transfBanco" class="search-input" placeholder="Ej. Banesco">
+          </div>
+          <div class="form-group">
+            <label>Número de referencia</label>
+            <input type="text" id="transfReferencia" class="search-input" placeholder="0123456789">
+          </div>
+        </div>
+
+        <div id="tarjetaFields" style="display:none;">
+          <div class="form-group">
+            <label>Número de tarjeta</label>
+            <input type="text" id="tarjetaNumero" class="search-input" placeholder="1234 5678 9012 3456">
+          </div>
+          <div class="form-group">
+            <label>Nombre del titular</label>
+            <input type="text" id="tarjetaTitular" class="search-input" placeholder="Nombre como aparece">
+          </div>
+          <div style="display:flex; gap:1rem;">
+            <div class="form-group" style="flex:1;">
+              <label>Vencimiento (MM/AA)</label>
+              <input type="text" id="tarjetaVencimiento" class="search-input" placeholder="12/30">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label>CVV</label>
+              <input type="text" id="tarjetaCVV" class="search-input" placeholder="123">
+            </div>
+          </div>
+        </div>
+
+        <div id="paymentSummary"></div>
+        <button class="btn-pay" id="btnConfirmPayment">Pagar ahora</button>
+        <span id="paymentMsg"></span>
+      </div>
+
+      <div id="paymentSuccessView" style="display:none; text-align:center;">
+        <h2>✅ ¡Pago exitoso!</h2>
+        <p>Tu pedido ha sido registrado.</p>
+        <p>¿Qué deseas hacer?</p>
+        <button class="btn-pay" id="btnDownloadInvoice">📄 Descargar factura</button>
+        <button class="btn-save-config" id="btnClosePayment" style="margin-left:1rem;">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="invoicePrintable" style="display:none; background:white; padding:2rem; max-width:600px; margin:0 auto; border:1px solid #ccc; font-family: sans-serif;">
+    <div id="invoiceContent"></div>
+  </div>
+
+  <!-- Modal: Nueva Persona -->
+  
+
+  <!-- Modal: Crear Usuario -->
+  
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/cliente_main.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+</body></html>

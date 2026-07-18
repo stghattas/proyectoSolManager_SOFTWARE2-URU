@@ -1,7 +1,28 @@
-// cliente.js – Módulo completo para el rol cliente
+// cliente.js – Módulo completo para el rol Cliente (actualizado con devoluciones)
+import wsClient from '../wsClient.js';
 
 export function init(api, user) {
-  // ===== RENDERIZAR GRILLA DE PRODUCTOS =====
+  // ========== CONEXIÓN WEBSOCKET (para chat) ==========
+  wsClient.connect(api.getToken());
+
+  wsClient.on('chat', (msg) => {
+    const modal = document.getElementById('chatModal');
+    if (!modal || modal.style.display !== 'flex') return;
+    const input = document.getElementById('chatMessageInput');
+    if (!input || input.dataset.pedidoId !== msg.pedidoId) return;
+    const chatDiv = document.getElementById('chatMessages');
+    if (chatDiv) {
+      chatDiv.innerHTML += `
+        <div class="chat-message ${msg.from === user.id ? 'mine' : 'other'}">
+          <div class="chat-bubble ${msg.from === user.id ? 'mine' : ''}">
+            <strong>${msg.nombre}:</strong> ${msg.text}
+          </div>
+        </div>`;
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+  });
+
+  // ========== RENDERIZAR GRILLA DE PRODUCTOS ==========
   function renderProductGrid(container, productos) {
     container.innerHTML = productos.map(p => {
       let emoji = '📦';
@@ -35,7 +56,7 @@ export function init(api, user) {
     });
   }
 
-  // ===== CARRITO =====
+  // ========== CARRITO ==========
   let cart = JSON.parse(localStorage.getItem('sol_cart') || '[]');
   function saveCart() { localStorage.setItem('sol_cart', JSON.stringify(cart)); renderCart(); }
 
@@ -93,7 +114,7 @@ export function init(api, user) {
     });
   }
 
-  // ===== PRODUCTOS INICIO =====
+  // ========== PRODUCTOS INICIO ==========
   async function loadHomeProducts() {
     const container = document.getElementById('productGridContainer');
     if (!container) return;
@@ -105,7 +126,7 @@ export function init(api, user) {
     }
   }
 
-  // ===== BÚSQUEDA EN INICIO =====
+  // ========== BÚSQUEDA EN INICIO (solo al hacer clic o Enter) ==========
   const searchInput = document.getElementById('searchInput');
   const btnSearch = document.getElementById('btnSearch');
   function filterHomeProducts(term) {
@@ -114,35 +135,48 @@ export function init(api, user) {
     const cards = container.querySelectorAll('.product-card');
     const t = term.toLowerCase().trim();
     cards.forEach(card => {
-      const name = card.querySelector('.product-name').textContent.toLowerCase();
+      const name = card.querySelector('.product-name')?.textContent.toLowerCase() || '';
       card.style.display = name.includes(t) ? '' : 'none';
     });
   }
   btnSearch?.addEventListener('click', () => filterHomeProducts(searchInput.value));
-  searchInput?.addEventListener('input', () => filterHomeProducts(searchInput.value));
+  searchInput?.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') filterHomeProducts(searchInput.value);
+  });
 
-  // ===== CATÁLOGO =====
+  // ========== CATÁLOGO (ordenar + categorías) ==========
   async function loadCatalogProducts(filtro = {}) {
     const grid = document.getElementById('catalogProductGrid');
+    const countSpan = document.getElementById('catalogCount');
     if (!grid) return;
-    let url = '/productos?';
-    if (filtro.categoria) url += `categoria=${filtro.categoria}&`;
-    if (filtro.buscar) url += `buscar=${encodeURIComponent(filtro.buscar)}&`;
     try {
-      const productos = await api.get(url);
+      let url = '/productos?';
+      if (filtro.categoria) url += `categoria=${filtro.categoria}&`;
+      if (filtro.buscar) url += `buscar=${encodeURIComponent(filtro.buscar)}&`;
+      let productos = await api.get(url);
+
+      const sortBy = document.getElementById('catalogSort')?.value || 'name-asc';
+      switch (sortBy) {
+        case 'name-asc': productos.sort((a,b) => a.nombre.localeCompare(b.nombre)); break;
+        case 'name-desc': productos.sort((a,b) => b.nombre.localeCompare(a.nombre)); break;
+        case 'price-asc': productos.sort((a,b) => parseFloat(a.precio_usd) - parseFloat(b.precio_usd)); break;
+        case 'price-desc': productos.sort((a,b) => parseFloat(b.precio_usd) - parseFloat(a.precio_usd)); break;
+      }
+
       renderProductGrid(grid, productos);
-      document.getElementById('catalogCount').textContent = `${productos.length} productos`;
+      if (countSpan) countSpan.textContent = `${productos.length} productos`;
     } catch (err) {
       grid.innerHTML = `<p class="error">Error al cargar catálogo</p>`;
     }
   }
 
-  document.getElementById('catalogSearch')?.addEventListener('input', (e) => {
-    const catId = document.querySelector('.category-card.active')?.dataset.catId;
-    loadCatalogProducts({ categoria: catId, buscar: e.target.value.trim() });
+  document.getElementById('catalogSort')?.addEventListener('change', () => {
+    const activeCat = document.querySelector('.category-card.active')?.dataset.catId || null;
+    const search = document.getElementById('catalogSearch')?.value.trim() || '';
+    loadCatalogProducts({ categoria: activeCat, buscar: search });
   });
 
-  // ===== CHECKOUT =====
+  // ========== CHECKOUT Y FACTURA ==========
   let lastOrderId = null;
 
   document.getElementById('btnCheckout')?.addEventListener('click', () => {
@@ -167,6 +201,7 @@ export function init(api, user) {
     try {
       const res = await api.post('/pedidos', {
         metodo_pago: method,
+        direccion_entrega_id: document.getElementById('paymentAddress').dataset.id || null,
         datos_pago: {},
         items: cart.map(i => ({
           producto_id: i.producto_id,
@@ -184,66 +219,51 @@ export function init(api, user) {
     }
   });
 
-  // Descargar factura
   document.getElementById('btnDownloadInvoice')?.addEventListener('click', async () => {
-  if (!lastOrderId) return alert('No hay pedido reciente');
-  try {
-    const pedido = await api.get(`/pedidos/${lastOrderId}/factura`);
-    const invoiceDiv = document.getElementById('invoicePrintable');
-    const content = document.getElementById('invoiceContent');
-    
-    // Construir HTML de la factura
-    content.innerHTML = `
-      <h2 style="text-align:center;">Sol Manager - Factura</h2>
-      <p><strong>Pedido #${pedido.id.substring(0,8)}</strong></p>
-      <p>Fecha: ${new Date(pedido.fecha_pedido).toLocaleString()}</p>
-      <p>Cliente: ${user.nombre}</p>
-      <hr>
-      <table style="width:100%; border-collapse:collapse;">
-        <tr style="background:#f0f0f0;"><th>Producto</th><th>Cant.</th><th>Precio USD</th><th>Subtotal USD</th></tr>
-        ${pedido.items.map(it => `
-          <tr>
-            <td>${it.producto_nombre}</td>
-            <td>${it.cantidad}</td>
-            <td>$${parseFloat(it.precio_unitario_usd).toFixed(2)}</td>
-            <td>$${parseFloat(it.subtotal_usd).toFixed(2)}</td>
-          </tr>
-        `).join('')}
-      </table>
-      <hr>
-      <p><strong>Total USD:</strong> $${parseFloat(pedido.total_usd).toFixed(2)}</p>
-      <p><strong>Total Bs:</strong> Bs.${parseFloat(pedido.total_bs).toFixed(2)}</p>
-      <p style="text-align:center; color:gray;">Gracias por su compra</p>
-    `;
-    
-    // Mostrar temporalmente para capturar con html2canvas
-    invoiceDiv.style.display = 'block';
-    invoiceDiv.style.position = 'absolute';
-    invoiceDiv.style.left = '-9999px'; // fuera de pantalla pero visible para el render
-    
-    // Esperar un poco a que se renderice
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const canvas = await html2canvas(invoiceDiv, { scale: 2 });
-    const imgData = canvas.toDataURL('image/png');
-    
-    // Ocultar de nuevo
-    invoiceDiv.style.display = 'none';
-    invoiceDiv.style.position = '';
-    invoiceDiv.style.left = '';
-    
-    // Descargar la imagen
-    const link = document.createElement('a');
-    link.download = `factura_${pedido.id.substring(0,8)}.png`;
-    link.href = imgData;
-    link.click();
-    
-  } catch (e) {
-    alert('Error al generar factura: ' + e.message);
-  }
-});
+    if (!lastOrderId) return;
+    try {
+      const pedido = await api.get(`/pedidos/${lastOrderId}/factura`);
+      const invoiceDiv = document.getElementById('invoicePrintable');
+      const content = document.getElementById('invoiceContent');
+      content.innerHTML = `
+        <h2 style="text-align:center;">Sol Manager - Factura</h2>
+        <p><strong>Pedido #${pedido.id.substring(0,8)}</strong></p>
+        <p>Fecha: ${new Date(pedido.fecha_pedido).toLocaleString()}</p>
+        <p>Cliente: ${user.nombre}</p>
+        <hr>
+        <table style="width:100%; border-collapse:collapse;">
+          <tr style="background:#f0f0f0;"><th>Producto</th><th>Cant.</th><th>Precio USD</th><th>Subtotal USD</th></tr>
+          ${pedido.items.map(it => `
+            <tr>
+              <td>${it.producto_nombre}</td>
+              <td>${it.cantidad}</td>
+              <td>$${parseFloat(it.precio_unitario_usd).toFixed(2)}</td>
+              <td>$${parseFloat(it.subtotal_usd).toFixed(2)}</td>
+            </tr>
+          `).join('')}
+        </table>
+        <hr>
+        <p><strong>Total USD:</strong> $${parseFloat(pedido.total_usd).toFixed(2)}</p>
+        <p><strong>Total Bs:</strong> Bs.${parseFloat(pedido.total_bs).toFixed(2)}</p>
+        <p style="text-align:center;">Gracias por su compra</p>
+      `;
+      invoiceDiv.style.display = 'block';
+      invoiceDiv.style.position = 'absolute';
+      invoiceDiv.style.left = '-9999px';
+      const canvas = await html2canvas(invoiceDiv, { scale: 2 });
+      const imgData = canvas.toDataURL('image/png');
+      invoiceDiv.style.display = 'none';
+      invoiceDiv.style.position = '';
+      invoiceDiv.style.left = '';
+      const link = document.createElement('a');
+      link.download = `factura_${pedido.id.substring(0,8)}.png`;
+      link.href = imgData;
+      link.click();
+    } catch (e) {
+      alert('Error al generar factura: ' + e.message);
+    }
+  });
 
-  // Cerrar modal de pago
   document.getElementById('closePaymentModal')?.addEventListener('click', () => {
     document.getElementById('paymentModal').style.display = 'none';
   });
@@ -251,39 +271,223 @@ export function init(api, user) {
     document.getElementById('paymentModal').style.display = 'none';
   });
 
-  // ===== HISTORIAL DE PEDIDOS =====
+  // ========== HISTORIAL DE PEDIDOS + SOLICITAR DEVOLUCIÓN ==========
   async function loadOrders(estado = 'pendiente') {
     const container = document.getElementById('ordersContainer');
     if (!container) return;
     try {
       const pedidos = await api.get(`/pedidos?estado=${estado}`);
-      container.innerHTML = pedidos.map(p => `
-        <div class="order-card">
-          <div class="order-header">
-            <span>Pedido #${p.id.substring(0,8)}</span>
-            <span class="order-status ${p.estado}">${p.estado}</span>
+      if (!pedidos.length) {
+        container.innerHTML = '<p>No hay pedidos</p>';
+        return;
+      }
+
+      container.innerHTML = pedidos.map(p => {
+        // Solo se puede solicitar devolución si está entregado
+        const devBtn = p.estado === 'entregado'
+          ? `<button class="btn-request-return" data-pedido-id="${p.id}" style="margin-top:0.5rem; background:var(--color-primary); color:#422006; border:none; padding:0.3rem 0.8rem; border-radius:4px;">Solicitar devolución</button>`
+          : '';
+
+        return `
+          <div class="order-card">
+            <div class="order-header">
+              <span>Pedido #${p.id.substring(0,8)}</span>
+              <span class="order-status ${p.estado}">${p.estado}</span>
+            </div>
+            <div>Fecha: ${new Date(p.fecha_pedido).toLocaleString()}</div>
+            <div>Total: $${p.total_usd} / Bs.${p.total_bs}</div>
+            ${devBtn}
           </div>
-          <div>Fecha: ${new Date(p.fecha_pedido).toLocaleString()}</div>
-          <div>Total: $${p.total_usd} / Bs.${p.total_bs}</div>
-        </div>
-      `).join('') || '<p>No hay pedidos</p>';
+        `;
+      }).join('');
+
+      // Evento para solicitar devolución
+      container.querySelectorAll('.btn-request-return').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const pedidoId = btn.dataset.pedidoId;
+          const pedido = await api.get(`/pedidos/${pedidoId}`);
+          if (!pedido || !pedido.items) return;
+
+          // Construir modal dinámico
+          let modalHtml = `
+            <div class="modal-overlay" id="returnModal">
+              <div class="modal-box">
+                <span class="close-modal" id="closeReturnModal">&times;</span>
+                <h2>Solicitar devolución</h2>
+                <div class="form-group">
+                  <label>Motivo de devolución</label>
+                  <textarea id="returnMotivo" rows="3" style="width:100%; padding:0.5rem;"></textarea>
+                </div>
+                <p>Productos del pedido:</p>
+                <div id="returnItemsList">
+                  ${pedido.items.map(item => `
+                    <div style="display:flex; align-items:center; gap:1rem; margin-bottom:0.5rem;">
+                      <input type="checkbox" class="return-item-check" data-item-id="${item.id}" checked>
+                      <span>${item.producto_nombre} (máx ${item.cantidad})</span>
+                      <input type="number" class="return-cantidad" value="${item.cantidad}" min="1" max="${item.cantidad}" style="width:70px;">
+                    </div>
+                  `).join('')}
+                </div>
+                <button id="submitReturnBtn" class="btn-checkout" style="margin-top:1rem;">Enviar solicitud</button>
+              </div>
+            </div>
+          `;
+          document.body.insertAdjacentHTML('beforeend', modalHtml);
+          const modal = document.getElementById('returnModal');
+          modal.style.display = 'flex';
+
+          document.getElementById('closeReturnModal').addEventListener('click', () => modal.remove());
+          document.getElementById('submitReturnBtn').addEventListener('click', async () => {
+            const motivo = document.getElementById('returnMotivo').value.trim();
+            if (!motivo) return alert('Escribe un motivo');
+
+            const items = [];
+            document.querySelectorAll('.return-item-check:checked').forEach(cb => {
+              const itemId = cb.dataset.itemId;
+              const cant = parseInt(cb.parentElement.querySelector('.return-cantidad').value);
+              if (cant > 0) items.push({ pedido_item_id: itemId, cantidad: cant });
+            });
+            if (items.length === 0) return alert('Selecciona al menos un producto');
+
+            try {
+              await api.post('/devoluciones/devolucion', {
+                pedido_id: pedidoId,
+                motivo,
+                items
+              });
+              alert('Solicitud de devolución enviada.');
+              modal.remove();
+              loadOrders(estado);
+            } catch (err) {
+              alert('Error: ' + err.message);
+            }
+          });
+        });
+      });
     } catch (err) {
       container.innerHTML = `<p class="error">Error al cargar pedidos</p>`;
     }
   }
-  document.getElementById('ordersFilter')?.addEventListener('change', (e) => loadOrders(e.target.value));
 
-  // ===== CONFIGURACIÓN =====
+  // ========== MIS DEVOLUCIONES (nueva pestaña) ==========
+  async function loadMyReturns() {
+    const container = document.getElementById('returnsContainer');
+    if (!container) return;
+    try {
+      const devoluciones = await api.get('/devoluciones/devoluciones');
+      if (devoluciones.length === 0) {
+        container.innerHTML = '<p>No tienes solicitudes de devolución</p>';
+        return;
+      }
+      container.innerHTML = devoluciones.map(d => `
+        <div class="order-card">
+          <div class="order-header">
+            <span>Devolución #${d.id.substring(0,8)}</span>
+            <span class="order-status ${d.estado}">${d.estado}</span>
+          </div>
+          <div><strong>Pedido:</strong> ${d.pedido_id.substring(0,8)}</div>
+          <div><strong>Motivo:</strong> ${d.motivo}</div>
+          <div><strong>Comentario gerente:</strong> ${d.comentario_gerente || 'Pendiente'}</div>
+          <div><strong>Productos:</strong> ${d.items?.map(i => `${i.producto_nombre} x${i.cantidad}`).join(', ') || 'N/A'}</div>
+          <div><strong>Fecha solicitud:</strong> ${new Date(d.fecha_solicitud).toLocaleString()}</div>
+        </div>
+      `).join('');
+    } catch (err) {
+      container.innerHTML = `<p class="error">Error al cargar devoluciones</p>`;
+    }
+  }
+
+  // ========== SEGUIMIENTO DELIVERY + CHAT ==========
+  let currentTrackingPedidoId = null;
+
+  async function loadActiveDelivery() {
+    const statusEl = document.getElementById('deliveryStatus');
+    const etaEl = document.getElementById('deliveryETA');
+    const courierEl = document.getElementById('deliveryCourier');
+    const openChatBtn = document.getElementById('openChatFromDelivery');
+
+    if (!statusEl) return;
+    try {
+      const data = await api.get('/pedidos/activo/seguimiento');
+      if (data) {
+        statusEl.textContent = data.estado;
+        etaEl.textContent = data.tiempo_estimado_minutos ? `${data.tiempo_estimado_minutos} min` : 'No especificado';
+        courierEl.textContent = data.repartidor_nombre || 'Repartidor';
+        if (openChatBtn) {
+          openChatBtn.style.display = 'inline-block';
+          openChatBtn.dataset.repartidorId = data.repartidor_id;
+          currentTrackingPedidoId = data.id;
+        }
+      } else {
+        statusEl.textContent = 'No hay entrega activa';
+        etaEl.textContent = '-';
+        courierEl.textContent = '-';
+        if (openChatBtn) openChatBtn.style.display = 'none';
+        currentTrackingPedidoId = null;
+      }
+    } catch (e) { console.error(e); }
+  }
+
+  document.getElementById('openChatFromDelivery')?.addEventListener('click', () => {
+    const repartidorId = document.getElementById('openChatFromDelivery').dataset.repartidorId;
+    if (currentTrackingPedidoId && repartidorId) {
+      openChat(currentTrackingPedidoId, repartidorId);
+    }
+  });
+
+  async function openChat(pedidoId, otroUserId) {
+    const modal = document.getElementById('chatModal');
+    if (modal) modal.style.display = 'flex';
+    const input = document.getElementById('chatMessageInput');
+    if (input) {
+      input.value = '';
+      input.dataset.pedidoId = pedidoId;
+      input.dataset.to = otroUserId;
+    }
+    const chatDiv = document.getElementById('chatMessages');
+    if (chatDiv) {
+      try {
+        const mensajes = await api.get(`/pedidos/${pedidoId}/mensajes`);
+        chatDiv.innerHTML = mensajes.map(m => `
+          <div class="chat-message ${m.remitente_id === user.id ? 'mine' : 'other'}">
+            <div class="chat-bubble ${m.remitente_id === user.id ? 'mine' : ''}">
+              <strong>${m.remitente_nombre}:</strong> ${m.mensaje}
+            </div>
+          </div>
+        `).join('');
+      } catch (e) { chatDiv.innerHTML = ''; }
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+  }
+
+  document.getElementById('btnSendMessage')?.addEventListener('click', () => {
+    const input = document.getElementById('chatMessageInput');
+    const text = input.value.trim();
+    const pedidoId = input.dataset.pedidoId;
+    const to = input.dataset.to;
+    if (text && pedidoId && to) {
+      wsClient.send({ type: 'chat', pedidoId, to, text });
+      input.value = '';
+      const chatDiv = document.getElementById('chatMessages');
+      chatDiv.innerHTML += `
+        <div class="chat-message mine">
+          <div class="chat-bubble mine"><strong>Tú:</strong> ${text}</div>
+        </div>`;
+      chatDiv.scrollTop = chatDiv.scrollHeight;
+    }
+  });
+
+  document.getElementById('closeChatModal')?.addEventListener('click', () => {
+    document.getElementById('chatModal').style.display = 'none';
+  });
+
+  // ========== CONFIGURACIÓN ==========
   async function loadProfile() {
     try {
       const perfil = await api.get('/auth/perfil');
       document.getElementById('configName').value = perfil.nombre || '';
-      // Cargar teléfono si existe
       document.getElementById('configPhone').value = perfil.telefono || '';
-      // Dirección no se guarda en usuario, se omite por ahora
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   }
 
   document.getElementById('btnSaveProfile')?.addEventListener('click', async () => {
@@ -292,53 +496,58 @@ export function init(api, user) {
     try {
       await api.put('/auth/perfil', { nombre, telefono });
       alert('Perfil actualizado correctamente');
-    } catch (err) {
-      alert('Error: ' + err.message);
-    }
+    } catch (err) { alert('Error: ' + err.message); }
   });
 
   document.getElementById('btnChangePassword')?.addEventListener('click', async () => {
-  const current = document.getElementById('configCurrentPassword').value;
-  const newPass = document.getElementById('configNewPassword').value;
-  const confirm = document.getElementById('configConfirmPassword').value;
-  const msg = document.getElementById('configPasswordMsg');
-  if (!current || !newPass || !confirm) {
-    msg.textContent = 'Todos los campos son obligatorios';
-    return;
-  }
-  if (newPass !== confirm) {
-    msg.textContent = 'Las contraseñas no coinciden';
-    return;
-  }
-  try {
-    await api.put('/auth/cambiar-password', { password_actual: current, password_nueva: newPass });
-    msg.textContent = 'Contraseña cambiada exitosamente';
-    msg.style.color = 'green';
-    // Limpiar campos
-    document.getElementById('configCurrentPassword').value = '';
-    document.getElementById('configNewPassword').value = '';
-    document.getElementById('configConfirmPassword').value = '';
-  } catch (err) {
-    msg.textContent = err.message;
-    msg.style.color = 'red';
-  }
-});
+    const current = document.getElementById('configCurrentPassword').value;
+    const newPass = document.getElementById('configNewPassword').value;
+    const confirm = document.getElementById('configConfirmPassword').value;
+    const msg = document.getElementById('configPasswordMsg');
+    if (!current || !newPass || !confirm) {
+      msg.textContent = 'Todos los campos son obligatorios';
+      return;
+    }
+    if (newPass !== confirm) {
+      msg.textContent = 'Las contraseñas no coinciden';
+      return;
+    }
+    try {
+      await api.put('/auth/cambiar-password', { password_actual: current, password_nueva: newPass });
+      msg.textContent = 'Contraseña cambiada exitosamente';
+      msg.style.color = 'green';
+      document.getElementById('configCurrentPassword').value = '';
+      document.getElementById('configNewPassword').value = '';
+      document.getElementById('configConfirmPassword').value = '';
+    } catch (err) {
+      msg.textContent = err.message;
+      msg.style.color = 'red';
+    }
+  });
 
   document.getElementById('btnSaveNotifications')?.addEventListener('click', () => {
     alert('Preferencias guardadas (simulación)');
   });
 
-  // ===== CONTROL DE VISTAS =====
+  // ========== NAVEGACIÓN ==========
   window.addEventListener('hashchange', () => {
     const viewId = window.location.hash.substring(1);
     if (viewId === 'view-home') loadHomeProducts();
     else if (viewId === 'view-catalog') loadCatalogProducts();
     else if (viewId === 'view-cart') renderCart();
     else if (viewId === 'view-orders') loadOrders();
+    else if (viewId === 'view-returns') loadMyReturns();
+    else if (viewId === 'view-delivery') loadActiveDelivery();
     else if (viewId === 'view-config') loadProfile();
   });
 
-  // Carga inicial
-  loadHomeProducts();
-  if (window.location.hash.substring(1) === 'view-config') loadProfile();
+  // Carga inicial según vista actual
+  const currentView = window.location.hash.substring(1) || 'view-home';
+  if (currentView === 'view-home') loadHomeProducts();
+  if (currentView === 'view-catalog') loadCatalogProducts();
+  if (currentView === 'view-cart') renderCart();
+  if (currentView === 'view-orders') loadOrders();
+  if (currentView === 'view-returns') loadMyReturns();
+  if (currentView === 'view-delivery') loadActiveDelivery();
+  if (currentView === 'view-config') loadProfile();
 }

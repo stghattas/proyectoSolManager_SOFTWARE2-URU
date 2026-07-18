@@ -1,10 +1,10 @@
 // api.js
 // Funciona tanto como script normal (window.api) como import ES6
 
-const API_URL = 'http://localhost:3000/api'; // Ajusta si tu backend corre en otro puerto/dirección
+const API_URL = 'http://localhost:3001/api'; // Ajusta si tu backend corre en otro puerto/dirección
 
 function getToken() {
-  return localStorage.getItem('token') || localStorage.getItem('sol_manager_token');
+   return sessionStorage.getItem('token') || sessionStorage.getItem('sol_manager_token');
 }
 
 function parseJwt(token) {

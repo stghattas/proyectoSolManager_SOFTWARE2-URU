@@ -1,27 +1,97 @@
-export function init(api, user) {
-  // Movimientos (placeholder)
-  const movementsContainer = document.getElementById('movementsContainer');
-  if (movementsContainer) movementsContainer.innerHTML = '<p>Últimos movimientos (próximamente)</p>';
+// almacenista.js – Módulo completo para el rol almacenista
 
-  // Compras a proveedores
+export function init(api, user) {
+
+  // =========================================================
+  // 1. INICIO: mostrar productos
+  // =========================================================
+  async function loadHomeProducts() {
+    const container = document.getElementById('productGridContainer');
+    if (!container) return;
+    try {
+      const productos = await api.get('/productos');
+      renderProductGrid(container, productos);
+    } catch (err) {
+      container.innerHTML = `<p class="error">Error al cargar productos: ${err.message}</p>`;
+    }
+  }
+
+  function renderProductGrid(container, productos) {
+    container.innerHTML = productos.map(p => {
+      let emoji = '📦';
+      if (p.imagen_url && p.imagen_url.length <= 4) emoji = p.imagen_url;
+      return `
+        <div class="product-card">
+          <div class="product-emoji">${emoji}</div>
+          <div class="product-info">
+            <h3 class="product-name">${p.nombre}</h3>
+            <p class="product-unit">${p.unidad_abreviatura || 'ud'}</p>
+            <div class="product-prices">
+              <span class="price-usd">$${parseFloat(p.precio_usd).toFixed(2)}</span>
+              <span class="price-bs">Bs.${parseFloat(p.precio_bs).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // =========================================================
+  // 2. MOVIMIENTOS DE STOCK (últimos)
+  // =========================================================
+  const movementsContainer = document.getElementById('movementsContainer');
+
+  async function loadMovements() {
+    if (!movementsContainer) return;
+    try {
+      const movs = await api.get('/almacenista/movimientos');
+      movementsContainer.innerHTML = movs.length ? `
+        <table class="cart-table">
+          <thead>
+            <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Almacén</th></tr>
+          </thead>
+          <tbody>
+            ${movs.map(m => `
+              <tr>
+                <td>${new Date(m.fecha).toLocaleString()}</td>
+                <td>${m.producto_nombre}</td>
+                <td>${m.tipo}</td>
+                <td>${m.cantidad}</td>
+                <td>${m.almacen_nombre}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>` : '<p>No hay movimientos registrados.</p>';
+    } catch (e) {
+      movementsContainer.innerHTML = '<p>Error al cargar movimientos.</p>';
+    }
+  }
+
+  // =========================================================
+  // 3. COMPRAS A PROVEEDORES
+  // =========================================================
   const purchasesContainer = document.getElementById('purchasesContainer');
   const btnNewPurchase = document.getElementById('btnNewPurchase');
+
   btnNewPurchase?.addEventListener('click', () => {
     const html = `
       <div class="config-section" style="margin-top:1rem;">
-        <h3>Nueva Compra</h3>
-        <select id="newPurchaseProveedor" class="search-input" style="width:100%;margin-bottom:0.5rem;">
-          <option value="">Seleccionar proveedor</option>
-        </select>
+        <h3>🛒 Nueva Compra a Proveedor</h3>
+        <div class="form-group">
+          <label>Proveedor</label>
+          <select id="newPurchaseProveedor" class="search-input" style="width:100%;">
+            <option value="">Seleccionar proveedor</option>
+          </select>
+        </div>
         <div id="newPurchaseItems"></div>
-        <button id="addPurchaseItem" class="btn-save-config" style="margin-top:0.5rem;">+ Agregar producto</button>
-        <button id="savePurchase" class="btn-checkout" style="margin-top:1rem;">Guardar compra</button>
+        <button id="addPurchaseItem" class="btn-admin-add" style="margin-top:0.5rem;">+ Agregar producto</button>
         <div id="purchaseResult" style="margin-top:0.5rem;"></div>
+        <button id="savePurchase" class="btn-checkout" style="margin-top:1rem;">Guardar compra</button>
       </div>
     `;
     purchasesContainer.insertAdjacentHTML('beforeend', html);
     cargarProveedores();
-    agregarLineaProducto();
+    agregarLineaProducto(); // línea inicial
     document.getElementById('addPurchaseItem')?.addEventListener('click', agregarLineaProducto);
     document.getElementById('savePurchase')?.addEventListener('click', guardarCompra);
   });
@@ -29,11 +99,20 @@ export function init(api, user) {
   function agregarLineaProducto() {
     const itemsDiv = document.getElementById('newPurchaseItems');
     itemsDiv.innerHTML += `
-      <div class="purchase-item" style="display:flex; gap:0.5rem; margin-bottom:0.5rem;">
-        <select class="purchase-product" style="flex:2;"><option value="">Producto</option></select>
-        <input type="number" class="purchase-qty" placeholder="Cantidad" style="flex:1;" step="0.01">
-        <input type="number" class="purchase-price-usd" placeholder="Precio USD" style="flex:1;" step="0.01">
-        <button class="cart-remove remove-purchase-item">X</button>
+      <div class="purchase-item" style="display:flex; gap:0.5rem; margin-bottom:0.5rem; align-items:center;">
+        <div style="flex:2;">
+          <label style="display:block; font-size:0.8rem;">Producto</label>
+          <select class="purchase-product search-input" style="width:100%;"><option value="">Seleccione</option></select>
+        </div>
+        <div style="flex:1;">
+          <label style="display:block; font-size:0.8rem;">Cantidad</label>
+          <input type="number" class="purchase-qty search-input" placeholder="Cant." step="0.01" style="width:100%;">
+        </div>
+        <div style="flex:1;">
+          <label style="display:block; font-size:0.8rem;">Precio USD</label>
+          <input type="number" class="purchase-price-usd search-input" placeholder="Precio" step="0.01" style="width:100%;">
+        </div>
+        <button class="cart-remove remove-purchase-item" style="align-self:flex-end;">X</button>
       </div>
     `;
     cargarProductos();
@@ -47,7 +126,8 @@ export function init(api, user) {
       const prods = await api.get('/productos');
       document.querySelectorAll('.purchase-product').forEach(select => {
         if (select.options.length <= 1) {
-          select.innerHTML = '<option value="">Producto</option>' + prods.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+          select.innerHTML = '<option value="">Seleccione</option>' +
+            prods.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
         }
       });
     } catch (e) { console.error(e); }
@@ -55,10 +135,13 @@ export function init(api, user) {
 
   async function cargarProveedores() {
     try {
-      const provs = await api.get('/gerente/proveedores'); // temporal
+      const provs = await api.get('/gerente/proveedores'); // Ajusta la ruta según tu API
       const select = document.getElementById('newPurchaseProveedor');
-      if (select) select.innerHTML = '<option value="">Seleccionar proveedor</option>' + provs.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
-    } catch (e) { /* sin proveedores aún */ }
+      if (select) {
+        select.innerHTML = '<option value="">Seleccionar proveedor</option>' +
+          provs.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+      }
+    } catch (e) { /* Aún sin proveedores */ }
   }
 
   async function guardarCompra() {
@@ -78,30 +161,57 @@ export function init(api, user) {
       setTimeout(() => {
         const form = document.querySelector('.config-section');
         if (form) form.remove();
-        // Recargar lista de compras (pendiente implementar endpoint de historial)
+        // Aquí podrías recargar la lista de compras si tuvieras un endpoint
       }, 1500);
     } catch (err) {
       document.getElementById('purchaseResult').textContent = 'Error: ' + err.message;
     }
   }
 
-  // Ajustes de inventario
+  // =========================================================
+  // 4. AJUSTES DE INVENTARIO
+  // =========================================================
   const adjustmentForm = document.getElementById('adjustmentForm');
+
   async function cargarSelectsAjuste() {
+    // Ajustar los tipos de movimiento para que coincidan con el CHECK de la BD
+    const adjustType = document.getElementById('adjustType');
+    if (adjustType) {
+      adjustType.innerHTML = `
+        <option value="">Seleccionar tipo</option>
+        <option value="entrada">Entrada (Compra)</option>
+        <option value="salida">Salida (Venta)</option>
+        <option value="ajuste">Ajuste (Físico)</option>
+        <option value="merma">Merma</option>
+        <option value="transferencia">Transferencia</option>
+      `;
+    }
+
+    // Cargar productos
     try {
       const prods = await api.get('/productos');
       const selectProd = document.getElementById('adjustProduct');
-      if (selectProd) selectProd.innerHTML = '<option value="">Seleccionar producto</option>' + prods.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+      if (selectProd) {
+        selectProd.innerHTML = '<option value="">Seleccionar producto</option>' +
+          prods.map(p => `<option value="${p.id}">${p.nombre}</option>`).join('');
+      }
     } catch (e) { console.error(e); }
-    // Almacenes
+
+    // Cargar almacenes
     try {
       const almacenes = await api.get('/almacenes');
       const selectAlm = document.getElementById('adjustWarehouse');
-      if (selectAlm) selectAlm.innerHTML = '<option value="">Seleccionar almacén</option>' + almacenes.map(a => `<option value="${a.id}">${a.nombre}</option>`).join('');
+      if (selectAlm) {
+        selectAlm.innerHTML = '<option value="">Seleccionar almacén</option>' +
+          almacenes.map(a => `<option value="${a.id}">${a.nombre}</option>`).join('');
+      }
     } catch (e) {
-      document.getElementById('adjustWarehouse').innerHTML = '<option value="a1000000-0000-0000-0000-000000000001">Almacén Principal</option>';
+      // Fallback con el almacén principal
+      const selectAlm = document.getElementById('adjustWarehouse');
+      if (selectAlm) selectAlm.innerHTML = '<option value="a1000000-0000-0000-0000-000000000001">Almacén Principal</option>';
     }
   }
+
   cargarSelectsAjuste();
 
   adjustmentForm?.addEventListener('submit', async (e) => {
@@ -121,31 +231,62 @@ export function init(api, user) {
         almacen_id: almacen,
         tipo,
         cantidad,
-        unidad_id: 'e0000000-0000-0000-0000-000000000001', // ud, idealmente tomarla del producto
+        unidad_id: 'e0000000-0000-0000-0000-000000000001', // unidad por defecto; idealmente tomarla del producto
         motivo: descripcion
       });
       document.getElementById('adjustmentResult').textContent = 'Ajuste registrado exitosamente';
       adjustmentForm.reset();
+      // Recargar movimientos
+      loadMovements();
     } catch (err) {
       document.getElementById('adjustmentResult').textContent = 'Error: ' + err.message;
     }
   });
 
-  // Alertas de stock
+  // =========================================================
+  // 5. ALERTAS DE STOCK BAJO
+  // =========================================================
+  const stockAlertsContainer = document.getElementById('stockAlertsContainer');
+
   async function loadStockAlerts() {
-    const container = document.getElementById('stockAlertsContainer');
-    if (!container) return;
+    if (!stockAlertsContainer) return;
     try {
       const alertas = await api.get('/almacenista/alertas-stock');
-      container.innerHTML = alertas.length ? 
-        `<table class="cart-table"><tr><th>Producto</th><th>Stock</th><th>Mínimo</th></tr>
-        ${alertas.map(a => `<tr><td>${a.nombre}</td><td>${a.cantidad}</td><td>${a.stock_minimo}</td></tr>`).join('')}
-        </table>` : '<p>No hay productos con stock bajo</p>';
-    } catch (e) { container.innerHTML = '<p>Error al cargar alertas</p>'; }
+      stockAlertsContainer.innerHTML = alertas.length ? `
+        <table class="cart-table">
+          <thead>
+            <tr><th>Producto</th><th>Stock actual</th><th>Stock mínimo</th></tr>
+          </thead>
+          <tbody>
+            ${alertas.map(a => `
+              <tr>
+                <td>${a.nombre}</td>
+                <td>${a.cantidad}</td>
+                <td>${a.stock_minimo}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>` : '<p>No hay productos con stock bajo.</p>';
+    } catch (e) {
+      stockAlertsContainer.innerHTML = '<p>Error al cargar alertas.</p>';
+    }
   }
+
+  // =========================================================
+  // 6. CONTROL DE NAVEGACIÓN ENTRE VISTAS
+  // =========================================================
   window.addEventListener('hashchange', () => {
-    if (window.location.hash === '#view-warehouse-alerts') loadStockAlerts();
-    else if (window.location.hash === '#view-warehouse-adjustments') cargarSelectsAjuste();
+    const view = window.location.hash.substring(1);
+    if (view === 'view-home') loadHomeProducts();
+    else if (view === 'view-warehouse-movements') loadMovements();
+    else if (view === 'view-warehouse-adjustments') cargarSelectsAjuste();
+    else if (view === 'view-warehouse-alerts') loadStockAlerts();
+    // Si quieres cargar compras al entrar, puedes agregar un endpoint de historial
   });
-  loadStockAlerts();
+
+  // Inicialización según la vista actual
+  const currentView = window.location.hash.substring(1);
+  if (currentView === 'view-home' || currentView === '') loadHomeProducts();
+  if (currentView === 'view-warehouse-movements') loadMovements();
+  if (currentView === 'view-warehouse-alerts') loadStockAlerts();
 }

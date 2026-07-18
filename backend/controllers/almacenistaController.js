@@ -31,3 +31,18 @@ exports.comprasProveedor = async (req, res) => {
   // Crear compra en BD y movimientos de entrada...
   res.json({ message: 'Compra registrada' });
 };
+
+exports.listarMovimientos = async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT mi.*, p.nombre as producto_nombre, a.nombre as almacen_nombre
+      FROM movimientos_inventario mi
+      JOIN productos p ON mi.producto_id = p.id
+      JOIN almacenes a ON mi.almacen_id = a.id
+      ORDER BY mi.fecha DESC LIMIT 50
+    `);
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

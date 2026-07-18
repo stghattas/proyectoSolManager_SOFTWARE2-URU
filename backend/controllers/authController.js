@@ -4,10 +4,10 @@ const pool = require('../config/database');
 const usuarioModel = require('../models/usuarioModel');
 const config = require('../config/config');
 
-// ----- Registro e inicio de sesión (originales) -----
+// ----- Registro e inicio de sesión -----
 exports.registrar = async (req, res) => {
   try {
-    const { nombre, apellido, email, password, rol } = req.body;
+    const { nombre, apellido, cedula, email, password, rol } = req.body;
     if (!nombre || !email || !password) {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
@@ -21,6 +21,7 @@ exports.registrar = async (req, res) => {
     const usuario = await usuarioModel.crearUsuario({
       nombre,
       apellido: apellido || '',
+      cedula: cedula || null,
       email,
       passwordHash,
       rol: rol || 'cliente',
@@ -72,7 +73,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// ----- Perfil (nuevo) -----
+// ----- Perfil -----
 exports.perfil = async (req, res) => {
   try {
     const usuario = await usuarioModel.buscarPorId(req.usuario.id);
@@ -83,7 +84,7 @@ exports.perfil = async (req, res) => {
   }
 };
 
-// ----- Actualizar perfil (nuevo) -----
+// ----- Actualizar perfil -----
 exports.actualizarPerfil = async (req, res) => {
   try {
     const { nombre, apellido, telefono } = req.body;
@@ -110,22 +111,15 @@ exports.actualizarPerfil = async (req, res) => {
   }
 };
 
-// ----- Cambiar contraseña (nuevo) -----
+// ----- Cambiar contraseña -----
 exports.cambiarPassword = async (req, res) => {
   try {
     const { password_actual, password_nueva } = req.body;
-    console.log('Intentando cambiar contraseña:', { password_actual: !!password_actual, password_nueva: !!password_nueva }); // log para debug
-
     if (!password_actual || !password_nueva) {
       return res.status(400).json({ error: 'Contraseña actual y nueva son requeridas' });
     }
 
-    if (typeof password_actual !== 'string' || typeof password_nueva !== 'string') {
-      return res.status(400).json({ error: 'Formato inválido' });
-    }
-
     const usuario = await usuarioModel.buscarPorId(req.usuario.id);
-    // Asegurarnos de que el usuario tenga password_hash
     if (!usuario || !usuario.password_hash) {
       return res.status(400).json({ error: 'Usuario no válido' });
     }
@@ -140,7 +134,7 @@ exports.cambiarPassword = async (req, res) => {
 
     res.json({ message: 'Contraseña actualizada exitosamente' });
   } catch (error) {
-    console.error('Error en cambiarPassword:', error);
+    console.error(error);
     res.status(500).json({ error: error.message });
   }
 };

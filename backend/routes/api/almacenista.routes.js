@@ -10,4 +10,5 @@ router.get('/almacenes', autenticar, async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM almacenes WHERE activo = true');
   res.json(rows);
 });
+router.get('/movimientos', autenticar, autorizar('almacenista','admin'), almacenistaController.listarMovimientos);
 module.exports = router;

@@ -1,3 +1,4 @@
+const pool = require('../config/database');
 const pedidoModel = require('../models/pedidoModel');
 const productoModel = require('../models/productoModel');
 
@@ -8,10 +9,8 @@ exports.crear = async (req, res) => {
       return res.status(400).json({ error: 'Faltan items o método de pago' });
     }
 
-    // Obtener precios actuales desde la base de datos
     const productosIds = items.map(i => i.producto_id);
     const productos = await productoModel.obtenerVarios(productosIds);
-
     const prodMap = {};
     productos.forEach(p => { prodMap[p.id] = p; });
 
@@ -92,15 +91,61 @@ exports.obtenerDetalle = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 exports.factura = async (req, res) => {
   try {
     const pedido = await pedidoModel.obtener(req.params.id);
     if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
-    // Asegurarse de que el usuario autenticado es dueño del pedido o admin
     if (pedido.usuario_id !== req.usuario.id && req.usuario.rol !== 'admin' && req.usuario.rol !== 'gerente') {
       return res.status(403).json({ error: 'No autorizado' });
     }
     res.json(pedido);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.obtenerMensajes = async (req, res) => {
+  try {
+    const pedido = await pedidoModel.obtener(req.params.id);
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
+
+    if (pedido.usuario_id !== req.usuario.id && pedido.repartidor_id !== req.usuario.id) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { rows } = await pool.query(`
+      SELECT m.*, u.nombre as remitente_nombre
+      FROM mensajes m
+      JOIN usuarios u ON m.remitente_id = u.id
+      WHERE m.pedido_id = $1
+      ORDER BY m.fecha ASC
+    `, [req.params.id]);
+
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.seguimiento = async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT p.id, p.estado_id, e.nombre as estado, p.tiempo_estimado_minutos,
+             u.nombre as repartidor_nombre, p.repartidor_id
+      FROM pedidos p
+      JOIN estados_pedido e ON p.estado_id = e.id
+      LEFT JOIN usuarios u ON p.repartidor_id = u.id
+      WHERE p.usuario_id = $1 AND p.repartidor_id IS NOT NULL
+        AND p.estado_id NOT IN (SELECT id FROM estados_pedido WHERE nombre IN ('entregado','cancelado'))
+      ORDER BY p.fecha_pedido DESC
+      LIMIT 1
+    `, [req.usuario.id]);
+
+    if (rows.length === 0) return res.json(null);
+    res.json(rows[0]);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });

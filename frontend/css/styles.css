@@ -60,7 +60,7 @@ body {
 .auth-card {
   max-width: 460px;
   width: 100%;
-  min-height: 520px;
+  height: 560px;                /* altura suficiente para que el registro no necesite scroll */
   background: var(--color-bg-card);
   border-radius: var(--border-radius-lg);
   box-shadow: var(--box-shadow);
@@ -70,7 +70,14 @@ body {
   margin: 0 auto;
 }
 
-.auth-content { padding: var(--spacing-xl); flex-grow: 1; }
+.auth-content {
+  padding: var(--spacing-xl);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;   /* contenido comienza desde arriba, no centrado */
+  overflow-y: hidden;            /* sin barra de desplazamiento */
+}
 
 .card-header {
   padding: var(--spacing-xs) var(--spacing-xl) var(--spacing-md) var(--spacing-xl);
@@ -200,7 +207,12 @@ body.dashboard-body { display: block !important; padding: 0 !important; margin: 
 body.dark .currency-badge { background: #342415; color: #f59e0b; }
 
 .sidebar-menu { flex: 1; padding: var(--spacing-md); display: flex; flex-direction: column; gap: var(--spacing-xs); overflow-y: auto; }
-
+.sidebar-menu {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
 .menu-btn {
   text-align: left;
   padding: var(--spacing-sm) var(--spacing-md);
@@ -434,6 +446,24 @@ body.dark .btn-delete-item:hover { background: #451a03; }
 .total-ves-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--color-text-light); margin-top: var(--spacing-xs); }
 .btn-checkout { width: 100%; background: var(--color-primary); color: #422006; border: none; padding: var(--spacing-md); border-radius: var(--border-radius-lg); font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.2s; box-shadow: var(--box-shadow-light); }
 .btn-checkout:hover { background: #d97706; transform: scale(0.98); }
+/* Ajuste para que el botón de registro no se corte */
+.auth-card {
+  height: 580px;                /* un poco más de altura */
+}
+
+.auth-content {
+  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-md) var(--spacing-xl);
+}
+
+/* Solo para el formulario de registro: reducir espacio entre campos */
+#registerForm .form-group {
+  margin-bottom: var(--spacing-sm);   /* antes era var(--spacing-md) */
+}
+
+#registerForm .btn-primary {
+  margin-top: var(--spacing-sm);      /* menos margen superior */
+}
+
 
 @media (max-width: 992px) {
   .cart-container { flex-direction: column; }
@@ -452,8 +482,28 @@ body.dark .btn-delete-item:hover { background: #451a03; }
 }
 
 @media (max-width: 500px) {
+
   body { padding: var(--spacing-md); }
   .auth-card { margin: var(--spacing-md); }
   .card-header, .auth-content { padding: var(--spacing-lg); }
   .tabs { margin: 0 var(--spacing-lg); }
+  /* Forzar que el botón de Configuración quede al fondo del menú */
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  height: 100%;        /* Ocupa todo el alto disponible */
+}
+
+
+/* Empuja el botón de configuración hacia abajo */
+#menu-config {
+   margin-bottom: 1rem;
+}
+
+/* Línea separadora encima de Configuración */
+.sidebar-menu hr {
+  margin: 0.5rem 0;
+  border: 1px solid var(--border-color);
+}
+
 }

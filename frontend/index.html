@@ -25,11 +25,11 @@
       <div id="loginForm">
         <div class="form-group">
           <label>Correo electrónico</label>
-          <input type="email" id="loginEmail" placeholder="nombre@correo.com">
+          <input type="email" id="loginEmail" placeholder="">
         </div>
         <div class="form-group">
           <label>Contraseña</label>
-          <input type="password" id="loginPassword" placeholder="••••••••">
+          <input type="password" id="loginPassword" placeholder="">
         </div>
         <button id="doLogin" class="btn-primary">Ingresar</button>
       </div>
@@ -37,21 +37,30 @@
       <!-- Formulario de registro -->
       <div id="registerForm" style="display: none;">
         <div class="form-group">
-          <label>Nombre completo</label>
-          <input type="text" id="regName" placeholder="Juan Pérez">
+          <label>Nombre</label>
+          <input type="text" id="regName" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Apellido</label>
+          <input type="text" id="regLastName" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Cédula</label>
+          <input type="text" id="regCedula" placeholder="">
         </div>
         <div class="form-group">
           <label>Correo electrónico</label>
-          <input type="email" id="regEmail" placeholder="tucorreo@ejemplo.com">
+          <input type="email" id="regEmail" placeholder="">
         </div>
         <div class="form-group">
           <label>Contraseña</label>
-          <input type="password" id="regPassword" placeholder="Crea una contraseña segura">
+          <input type="password" id="regPassword" placeholder="">
         </div>
         <button id="doRegister" class="btn-primary">Crear cuenta</button>
       </div>
 
-      <div id="messageArea" class="message" style="display: none;"></div>
+      <!-- Área de mensajes (importante) -->
+      <div id="messageArea" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: 0.5rem; font-weight: 600; text-align: center;"></div>
     </div>
   </div>
 

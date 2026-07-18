@@ -1,13 +1,12 @@
 // dashboard.js
-(async function() {
-  // Verificar token
-  const token = localStorage.getItem('token') || localStorage.getItem('sol_manager_token');
+(async function () {
+  // ========== VERIFICAR TOKEN ==========
+  const token = sessionStorage.getItem('token') || sessionStorage.getItem('sol_manager_token');
   if (!token) {
     window.location.href = 'index.html';
     return;
   }
 
-  // Decodificar payload (sin validar firma)
   function parseJwt(t) {
     try {
       const base64 = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
@@ -30,37 +29,59 @@
     rol: payload.rol
   };
 
-  // Mostrar datos en sidebar
   document.getElementById('sidebarUserName').textContent = currentUser.nombre;
   document.getElementById('sidebarUserRole').textContent = `Rol: ${currentUser.rol}`;
 
-  // Menú según roles
+  // ========== MENÚ SEGÚN ROL ==========
   const menuItems = {
-    cliente: ['menu-home', 'menu-catalog', 'menu-cart', 'menu-orders', 'menu-delivery', 'menu-config'],
-    cajero: ['menu-cashier-pos', 'menu-config'],
-    almacenista: ['menu-home', 'menu-warehouse-movements', 'menu-warehouse-purchases', 'menu-warehouse-adjustments', 'menu-warehouse-alerts', 'menu-config'],
-    repartidor: ['menu-delivery-list', 'menu-config'],
-    gerente: ['menu-home', 'menu-admin-products', 'menu-admin-almacenes', 'menu-admin-proveedores', 'menu-admin-reportes', 'menu-admin-users', 'menu-admin-devoluciones', 'menu-config'],
+   cliente: [
+  'menu-home', 'menu-catalog', 'menu-cart', 'menu-orders', 'menu-delivery', 'menu-config', 'menu-returns'
+],
+   cajero: ['menu-cashier-pos', 'menu-cashier-clients', 'menu-config'],
+
+    almacenista: [
+      'menu-warehouse-movements', 'menu-warehouse-purchases', 'menu-warehouse-adjustments',
+      'menu-warehouse-alerts', 'menu-home', 'menu-config'
+    ],
+    repartidor: [
+      'menu-delivery-list', 'menu-config'
+    ],
+    gerente: [
+  'menu-admin-reportes', 'menu-admin-users', 'menu-admin-products',
+  'menu-admin-almacenes', 'menu-admin-proveedores', 'menu-admin-devoluciones',
+  'menu-config'   
+],
     admin: [
       'menu-home', 'menu-catalog', 'menu-cart', 'menu-orders', 'menu-delivery',
-      'menu-cashier-pos', 'menu-delivery-list', 'menu-admin-products', 'menu-admin-almacenes',
-      'menu-admin-proveedores', 'menu-admin-reportes', 'menu-admin-users', 'menu-admin-devoluciones',
+      'menu-cashier-pos', 'menu-delivery-list',
+      'menu-admin-products', 'menu-admin-almacenes', 'menu-admin-proveedores',
+      'menu-admin-reportes', 'menu-admin-users', 'menu-admin-devoluciones',
       'menu-warehouse-movements', 'menu-warehouse-purchases', 'menu-warehouse-adjustments',
       'menu-warehouse-alerts', 'menu-config'
     ]
   };
 
-  // Ocultar todos los botones primero
-  document.querySelectorAll('.menu-btn').forEach(btn => btn.style.display = 'none');
-
-  // Mostrar solo los del rol
+  // Ocultar todos y mostrar solo los del rol
+  document.querySelectorAll('.menu-btn').forEach(btn => (btn.style.display = 'none'));
   const allowed = menuItems[currentUser.rol] || [];
   allowed.forEach(id => {
     const btn = document.getElementById(id);
     if (btn) btn.style.display = 'block';
   });
 
-  // Navegación entre vistas
+  // ***** NUEVO: Mover Configuración al final del menú *****
+  const sidebarMenu = document.querySelector('.sidebar-menu');
+  const configBtn = document.getElementById('menu-config');
+  if (sidebarMenu && configBtn && allowed.includes('menu-config')) {
+    const existingHr = configBtn.previousElementSibling;
+    if (existingHr && existingHr.tagName === 'HR') {
+      existingHr.remove();
+    }
+    sidebarMenu.appendChild(configBtn);
+  }
+  // ******************************************************
+
+  // ========== MAPEO DE VISTAS ==========
   const viewMap = {
     'menu-home': 'view-home',
     'menu-catalog': 'view-catalog',
@@ -79,19 +100,20 @@
     'menu-warehouse-movements': 'view-warehouse-movements',
     'menu-warehouse-purchases': 'view-warehouse-purchases',
     'menu-warehouse-adjustments': 'view-warehouse-adjustments',
-    'menu-warehouse-alerts': 'view-warehouse-alerts'
+    'menu-warehouse-alerts': 'view-warehouse-alerts',
+    'menu-cashier-clients': 'view-cashier-clients',
+    'menu-returns': 'view-returns',
   };
 
- function switchView(viewId) {
-  document.querySelectorAll('.dashboard-view').forEach(v => v.style.display = 'none');
-  const view = document.getElementById(viewId);
-  if (view) view.style.display = 'block';
+  function switchView(viewId) {
+    document.querySelectorAll('.dashboard-view').forEach(v => (v.style.display = 'none'));
+    const view = document.getElementById(viewId);
+    if (view) view.style.display = 'block';
 
-  // Mostrar/ocultar barra de búsqueda superior
-  const searchGroup = document.getElementById('searchGroup');
-  if (searchGroup) {
-    searchGroup.style.display = (viewId === 'view-home') ? 'flex' : 'none';
-  }
+    const searchGroup = document.getElementById('searchGroup');
+    if (searchGroup) {
+      searchGroup.style.display = viewId === 'view-home' ? 'flex' : 'none';
+    }
 
     document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
     for (const [btnId, vId] of Object.entries(viewMap)) {
@@ -110,10 +132,9 @@
     });
   });
 
-  // Botón volver
   document.getElementById('btnBack').addEventListener('click', () => switchView('view-home'));
 
-  // Tema oscuro
+  // ========== TEMA OSCURO ==========
   const themeToggle = document.getElementById('themeToggle');
   const savedTheme = localStorage.getItem('theme');
   if (savedTheme === 'dark') {
@@ -127,36 +148,64 @@
     themeToggle.textContent = isDark ? '☀️ Modo claro' : '🌙 Modo oscuro';
   });
 
-  // Cerrar sesión
+  // ========== CERRAR SESIÓN ==========
   document.getElementById('btnLogout').addEventListener('click', () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('sol_manager_token');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('sol_manager_token');
+    sessionStorage.removeItem('sol_manager_user');
     window.location.href = 'index.html';
   });
 
-  // Cargar módulo del rol
-  let modulePath;
-  switch (currentUser.rol) {
-    case 'cliente': modulePath = './modules/cliente.js'; break;
-    case 'cajero': modulePath = './modules/cajero.js'; break;
-    case 'almacenista': modulePath = './modules/almacenista.js'; break;
-    case 'repartidor': modulePath = './modules/repartidor.js'; break;
-    case 'gerente':
-    case 'admin': modulePath = './modules/gerente.js'; break;
-    default: modulePath = './modules/cliente.js';
+  // ========== CARGA DINÁMICA DEL MÓDULO DE ROL ==========
+  let api = window.api;
+  if (!api) {
+    try {
+      const apiModule = await import('./api.js');
+      api = apiModule.default;
+    } catch (e) {
+      console.error('No se pudo cargar api.js', e);
+      alert('Error al cargar la conexión con el servidor');
+      return;
+    }
   }
 
+  const roleModules = {
+    cliente: './modules/cliente.js',
+    cajero: './modules/cajero.js',
+    almacenista: './modules/almacenista.js',
+    repartidor: './modules/repartidor.js',
+    gerente: './modules/gerente.js',
+    admin: './modules/gerente.js'
+  };
+
+  const modulePath = roleModules[currentUser.rol] || './modules/cliente.js';
+
   try {
-    // Cargar api.js como módulo (si no está ya como global)
-    const api = window.api || (await import('./api.js')).default;
     const module = await import(modulePath);
     if (module.init) {
       module.init(api, currentUser);
     }
-    // Navegar a la vista inicial (home)
-    switchView('view-home');
   } catch (error) {
-    console.error('Error al cargar módulo:', error);
-    alert('Error al inicializar el módulo del cliente. Ver consola.');
+    console.error(`Error al cargar módulo ${currentUser.rol}:`, error);
+    alert('Error al inicializar el módulo del usuario.');
+    return;
+  }
+
+  // ========== REDIRIGIR A LA VISTA PRINCIPAL DEL ROL ==========
+  const defaultViewMap = {
+    cliente: 'view-home',
+    cajero: 'view-cashier-pos',
+    almacenista: 'view-warehouse-movements',
+    repartidor: 'view-delivery-list',
+    gerente: 'view-admin-reportes',
+    admin: 'view-admin-reportes'
+  };
+
+  const initialHash = window.location.hash.substring(1);
+  if (initialHash && document.getElementById(initialHash)) {
+    switchView(initialHash);
+  } else {
+    const defaultView = defaultViewMap[currentUser.rol] || 'view-home';
+    switchView(defaultView);
   }
 })();
